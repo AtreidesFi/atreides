@@ -1,0 +1,41 @@
+# The fee tier (03 §7.6; shape 07 §2.4). Sources only: no handlers.
+tier:
+  get:
+    operationId: getTier
+    summary: Read the fee tier, the 30-day volume and the next threshold.
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The tier.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/rewards.yaml#/TierView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                tier: base
+                volume30dUsd: "1200"
+                matchedTier: null
+                graceUntil: null
+                nextThresholdUsd: "10000"
+                asOf: 2026-11-06

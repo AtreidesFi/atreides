@@ -1,0 +1,125 @@
+oauthStart:
+  post:
+    operationId: startCexOAuth
+    summary: Start an approved exchange OAuth connection.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals: [oauth_not_enabled, unavailable]
+    security:
+      - session: []
+    parameters:
+      - $ref: "#/venue"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [purpose]
+            properties:
+              purpose:
+                type: string
+                enum: [read, trade]
+          example:
+            purpose: trade
+    responses:
+      "200":
+        description: Where to continue the approved connection, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                      required: [authorizeUrl, state]
+                      properties:
+                        authorizeUrl:
+                          type: string
+                          format: uri
+                        state:
+                          type: string
+                          minLength: 43
+                          maxLength: 43
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                authorizeUrl: https://oauth.example.test/authorize
+                state: fixture-state-for-schema-example-0000000000
+oauthCallback:
+  get:
+    operationId: finishCexOAuth
+    summary: Finish the exchange connection bound to the current session and OAuth state.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals: [invalid_request, oauth_not_enabled, venue_unreachable]
+    security:
+      - session: []
+    parameters:
+      - $ref: "#/venue"
+      - name: state
+        in: query
+        required: true
+        example: fixture-state-for-schema-example-0000000000
+        schema:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: "^[A-Za-z0-9_-]+$"
+      - name: code
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 2048
+      - name: error
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+    responses:
+      "200":
+        description: The state or provider exchange was refused before a redirect.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: oauth_not_enabled
+              requestId: 00000000-0000-7000-8000-000000000001
+              retryable: false
+              message: OAuth is unavailable.
+              details: {}
+      "302":
+        description: Continue on the Connections page with the result or a denial.
+        headers:
+          Location:
+            required: true
+            schema:
+              type: string
+              format: uri
+venue:
+  in: path
+  name: venue
+  required: true
+  description: The exchange OAuth program.
+  schema:
+    type: string
+    enum: [bybit, okx]

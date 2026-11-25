@@ -1,0 +1,207 @@
+follows:
+  get:
+    operationId: listFollows
+    summary: List your follows.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: Owner-scoped follows.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/lab.yaml#/FollowView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example: { ok: true, data: [] }
+  post:
+    operationId: createFollow
+    summary: Follow a strategy with a simulated run.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - follow_exists
+      - follow_limit
+      - feature_unavailable
+      - scope_missing
+      - idempotency_conflict
+      - research_card_no_spec
+      - lab_spec_invalid
+      - strategy_killed
+      - strategy_archived
+      - strategy_run_caps_invalid
+      - chat_not_linked
+      - alert_rule_unavailable
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [target, alerts]
+            properties:
+              target:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    required: [kind, versionId]
+                    properties:
+                      kind: { const: strategy }
+                      versionId:
+                        $ref: ../components/primitives.yaml#/Uuid
+                  - type: object
+                    additionalProperties: false
+                    required: [kind, cardId]
+                    properties:
+                      kind: { const: card }
+                      cardId:
+                        $ref: ../components/primitives.yaml#/Uuid
+              alerts: { type: boolean }
+              alertChannels:
+                type: array
+                minItems: 1
+                uniqueItems: true
+                items: { type: string, enum: [discord, telegram] }
+          example: { target: { kind: strategy, versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80 }, alerts: false }
+    responses:
+      "200":
+        description: The follow and its paper run.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      type: object
+                      additionalProperties: false
+                      required: [follow, run]
+                      properties:
+                        follow:
+                          $ref: ../components/lab.yaml#/FollowView
+                        run:
+                          $ref: ../components/lab.yaml#/RunView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                follow:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  target: { kind: strategy, versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80, strategyNumber: 1 }
+                  paperRunId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  alerts: false
+                  alertChannels: []
+                  status: active
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                  endedAt: null
+                run:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyNumber: 1
+                  versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  mode: paper
+                  venueAccountId: null
+                  status: armed
+                  pauseReason: null
+                  stopPolicy: null
+                  caps:
+                    instruments: [hyperliquid:BTC]
+                    maxOrderNotional: "100"
+                    maxOpenNotional: "200"
+                    maxOpenPositions: 2
+                    dailyLossStop: "0.1"
+                    maxOrdersPerDay: 10
+                    maxLeverage: 1
+                  quoteAsset: usdc
+                  runner: null
+                  stats: null
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                  startedAt: null
+                  stoppedAt: null
+end:
+  post:
+    operationId: endFollow
+    summary: End your follow and its simulated run.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - scope_missing
+      - idempotency_conflict
+      - feature_unavailable
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/EmptyRequest
+          example: {}
+    responses:
+      "200":
+        description: The ended follow.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/lab.yaml#/FollowView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                target: { kind: strategy, versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80, strategyNumber: 1 }
+                paperRunId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                alerts: false
+                alertChannels: []
+                createdAt: "2026-11-07T09:30:00.000Z"
+                status: ended
+                endedAt: "2026-11-07T09:30:00.000Z"

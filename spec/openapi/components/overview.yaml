@@ -1,0 +1,216 @@
+# Wire schemas of the overview volume and execution stats (13-web-shell-trading.md §11.3).
+VolumeRow:
+  type: object
+  additionalProperties: false
+  required:
+    - venue
+    - day
+    - notional
+    - fills
+    - ourFee
+    - venueFee
+    - reconciled
+  properties:
+    venue:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/VenueId
+        - type: "null"
+    day:
+      oneOf:
+        - $ref: ../components/reads.yaml#/UtcDay
+        - type: "null"
+    notional:
+      type: array
+      items: &a1
+        $ref: ../components/primitives.yaml#/MoneyJson
+      description: Per quote asset; never converted.
+    fills:
+      type: integer
+      minimum: 0
+    ourFee:
+      type: array
+      items: *a1
+    venueFee:
+      type: array
+      items: *a1
+    reconciled:
+      type: boolean
+      description: Every fill in the row is reconciled.
+VolumeView:
+  type: object
+  additionalProperties: false
+  required:
+    - rows
+    - asOf
+  properties:
+    rows:
+      type: array
+      items:
+        $ref: "#/VolumeRow"
+    asOf:
+      $ref: ../components/primitives.yaml#/Instant
+ExecutionRow:
+  type: object
+  additionalProperties: false
+  required:
+    - key
+    - label
+    - orders
+    - filledOrders
+    - partialOrders
+    - rejectedOrders
+    - unknownOrders
+    - postOnlyOrders
+    - postOnlyFilled
+    - ackLatencyMs
+    - slippageBps
+    - ourFee
+  properties:
+    key:
+      type: string
+      description: An API key id, a venue id or an origin.
+    label:
+      type: string
+    orders:
+      type: integer
+      minimum: 0
+    filledOrders:
+      type: integer
+      minimum: 0
+    partialOrders:
+      type: integer
+      minimum: 0
+    rejectedOrders:
+      type: integer
+      minimum: 0
+    unknownOrders:
+      type: integer
+      minimum: 0
+    postOnlyOrders:
+      type: integer
+      minimum: 0
+    postOnlyFilled:
+      type: integer
+      minimum: 0
+    ackLatencyMs:
+      type: object
+      additionalProperties: false
+      required:
+        - p50
+        - p95
+      properties:
+        p50:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: "null"
+        p95:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: "null"
+    slippageBps:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/DecStr
+        - type: "null"
+    ourFee:
+      type: array
+      items: *a1
+    report:
+      description: The per-order execution reports of the group (05 section 10b.5), summed.
+      $ref: "#/ExecutionAggregate"
+ExecutionLatency:
+  type: object
+  additionalProperties: false
+  required:
+    - p50
+    - p95
+    - count
+  properties:
+    p50:
+      oneOf:
+        - type: number
+          minimum: 0
+        - type: "null"
+    p95:
+      oneOf:
+        - type: number
+          minimum: 0
+        - type: "null"
+    count:
+      type: integer
+      minimum: 0
+ExecutionAggregate:
+  type: object
+  description: Notional-weighted figures use USD notional; an order without a figure is left out of that figure and a
+    figure no order can give is null, never zero.
+  additionalProperties: false
+  required:
+    - orders
+    - filledNotionalUsd
+    - slippageVsArrivalBps
+    - slippageVsMidBps
+    - venueFeesUsd
+    - ourFeesUsd
+    - decisionMs
+    - msToAck
+    - msToFirstFill
+    - fillRate
+    - rejectRate
+  properties:
+    orders:
+      type: integer
+      minimum: 0
+    filledNotionalUsd:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    slippageVsArrivalBps:
+      description: Confirmed taker slippage against the arrival book mid, weighted by taker USD notional.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    slippageVsMidBps:
+      description: The same confirmed taker book-mid measure as slippageVsArrivalBps.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    venueFeesUsd:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    ourFeesUsd:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    decisionMs:
+      $ref: "#/ExecutionLatency"
+    msToAck:
+      $ref: "#/ExecutionLatency"
+    msToFirstFill:
+      $ref: "#/ExecutionLatency"
+    fillRate:
+      description: Filled size divided by ordered size across final orders.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    rejectRate:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+ExecutionView:
+  type: object
+  additionalProperties: false
+  required:
+    - rows
+    - asOf
+  properties:
+    rows:
+      type: array
+      items:
+        $ref: "#/ExecutionRow"
+    asOf:
+      $ref: ../components/primitives.yaml#/Instant
+    csv:
+      description: With `format=csv`, one row per order of the period; its totals equal the rows' report figures.
+      type: string

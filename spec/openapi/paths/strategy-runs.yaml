@@ -1,0 +1,824 @@
+# Strategy runs and runner reports (09 §6.2).
+create:
+  post:
+    operationId: createStrategyRun
+    summary: Create a strategy run.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - scope_missing
+      - venue_closed
+      - venue_reduce_only
+      - venue_paused
+      - strategy_killed
+      - strategy_archived
+      - lab_spec_invalid
+      - strategy_run_caps_invalid
+      - strategy_run_limit
+      - account_not_owned
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab-runs.yaml#/CreateStrategyRunRequest
+          example:
+            versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+            mode: paper
+            caps:
+              instruments:
+                - hyperliquid:BTC
+              maxOrderNotional: "100"
+              maxOpenNotional: "200"
+              maxOpenPositions: 2
+              dailyLossStop: "0.1"
+              maxOrdersPerDay: 10
+              maxLeverage: 1
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab-runs.yaml#/StrategyRunCreated
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                run:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyNumber: 1
+                  versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  mode: paper
+                  venueAccountId: null
+                  status: armed
+                  pauseReason: null
+                  stopPolicy: null
+                  caps:
+                    instruments:
+                      - hyperliquid:BTC
+                    maxOrderNotional: "100"
+                    maxOpenNotional: "200"
+                    maxOpenPositions: 2
+                    dailyLossStop: "0.1"
+                    maxOrdersPerDay: 10
+                    maxLeverage: 1
+                  quoteAsset: usdc
+                  runner: null
+                  stats: null
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                  startedAt: null
+                  stoppedAt: null
+                runnerSnippet:
+                  ts: const runId = "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80"
+                  python: run_id = "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80"
+list:
+  get:
+    operationId: listStrategyRuns
+    summary: List the caller's strategy runs.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+            - armed
+            - live
+            - paused
+            - lost
+            - stopping
+            - stopped
+            - failed
+      - name: mode
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+            - paper
+            - direct
+            - gateway
+      - name: strategyId
+        in: query
+        required: false
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/lab.yaml#/RunView
+                    nextCursor:
+                      oneOf:
+                        - type: string
+                        - type: "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyNumber: 1
+                  versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  mode: paper
+                  venueAccountId: null
+                  status: armed
+                  pauseReason: null
+                  stopPolicy: null
+                  caps:
+                    instruments:
+                      - hyperliquid:BTC
+                    maxOrderNotional: "100"
+                    maxOpenNotional: "200"
+                    maxOpenPositions: 2
+                    dailyLossStop: "0.1"
+                    maxOrdersPerDay: 10
+                    maxLeverage: 1
+                  quoteAsset: usdc
+                  runner: null
+                  stats: null
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                  startedAt: null
+                  stoppedAt: null
+              nextCursor: null
+detail:
+  get:
+    operationId: getStrategyRun
+    summary: Read a strategy run and its recent activity.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/RunDetail
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                run:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  strategyNumber: 1
+                  versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  mode: paper
+                  venueAccountId: null
+                  status: armed
+                  pauseReason: null
+                  stopPolicy: null
+                  caps:
+                    instruments:
+                      - hyperliquid:BTC
+                    maxOrderNotional: "100"
+                    maxOpenNotional: "200"
+                    maxOpenPositions: 2
+                    dailyLossStop: "0.1"
+                    maxOrdersPerDay: 10
+                    maxLeverage: 1
+                  quoteAsset: usdc
+                  runner: null
+                  stats: null
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                  startedAt: null
+                  stoppedAt: null
+                events: []
+                holdings: []
+                cloidPrefix: rabcdefg
+                equityPath: /v1/strategy-runs/01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80/equity
+                runnerSnippet: null
+heartbeat:
+  post:
+    operationId: heartbeatStrategyRun
+    summary: Attach a runner and return its current guards.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - scope_missing
+      - strategy_run_version_mismatch
+      - strategy_run_finished
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab-runs.yaml#/RunHeartbeatRequest
+          example:
+            runnerLang: ts
+            runnerVersion: 1.0.0
+            specSha256: abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd
+            state: running
+            lastDecisionAt: null
+            holdings: []
+            note: null
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab-runs.yaml#/RunHeartbeatAnswer
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                status: live
+                pauseReason: null
+                stopPolicy: null
+                caps:
+                  instruments:
+                    - hyperliquid:BTC
+                  maxOrderNotional: "100"
+                  maxOpenNotional: "200"
+                  maxOpenPositions: 2
+                  dailyLossStop: "0.1"
+                  maxOrdersPerDay: 10
+                  maxLeverage: 1
+                capsState:
+                  dailyLossHit: false
+                  openNotional: "0"
+                  ordersToday: 0
+                nextHeartbeatInMs: 15000
+orders:
+  post:
+    operationId: reportStrategyRunOrders
+    summary: Record strategy order intents before submission.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: protect
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - scope_missing
+      - strategy_run_finished
+      - strategy_run_not_live
+      - strategy_run_cap
+      - strategy_killed
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab-runs.yaml#/RunOrderReports
+          example:
+            reports:
+              - clientOrderId: rabcde23-1
+                venueClientId: null
+                intent: open
+                instrument: hyperliquid:BTC
+                side: buy
+                reduceOnly: false
+                decidedAt: "2026-11-07T09:30:00.000Z"
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab-runs.yaml#/RunOrderReportCount
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                accepted: 1
+                duplicates: 0
+events:
+  post:
+    operationId: reportStrategyRunEvents
+    summary: Record strategy decisions and order outcomes.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: protect
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - scope_missing
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab-runs.yaml#/RunEventReports
+          example:
+            events:
+              - kind: unknown_outcome
+                at: "2026-11-07T09:30:00.000Z"
+                data:
+                  clientOrderId: rabcde23-1
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab-runs.yaml#/RunEventCount
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                accepted: 1
+pause:
+  post:
+    operationId: pauseStrategyRun
+    summary: Pause openings for a strategy run.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - scope_missing
+      - strategy_run_not_live
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/RunView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                strategyNumber: 1
+                versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                version: 1
+                mode: paper
+                venueAccountId: null
+                status: armed
+                pauseReason: null
+                stopPolicy: null
+                caps:
+                  instruments:
+                    - hyperliquid:BTC
+                  maxOrderNotional: "100"
+                  maxOpenNotional: "200"
+                  maxOpenPositions: 2
+                  dailyLossStop: "0.1"
+                  maxOrdersPerDay: 10
+                  maxLeverage: 1
+                quoteAsset: usdc
+                runner: null
+                stats: null
+                createdAt: "2026-11-07T09:30:00.000Z"
+                startedAt: null
+                stoppedAt: null
+resume:
+  post:
+    operationId: resumeStrategyRun
+    summary: Resume a paused strategy run.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - scope_missing
+      - strategy_run_not_live
+      - strategy_killed
+      - strategy_run_cap
+      - venue_closed
+      - venue_reduce_only
+      - venue_paused
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/RunView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                strategyNumber: 1
+                versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                version: 1
+                mode: paper
+                venueAccountId: null
+                status: armed
+                pauseReason: null
+                stopPolicy: null
+                caps:
+                  instruments:
+                    - hyperliquid:BTC
+                  maxOrderNotional: "100"
+                  maxOpenNotional: "200"
+                  maxOpenPositions: 2
+                  dailyLossStop: "0.1"
+                  maxOrdersPerDay: 10
+                  maxLeverage: 1
+                quoteAsset: usdc
+                runner: null
+                stats: null
+                createdAt: "2026-11-07T09:30:00.000Z"
+                startedAt: null
+                stoppedAt: null
+stop:
+  post:
+    operationId: stopStrategyRun
+    summary: Request a strategy run stop.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - scope_missing
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab-runs.yaml#/RunStopRequest
+          example:
+            policy: leave_positions
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/RunView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                strategyNumber: 1
+                versionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                version: 1
+                mode: paper
+                venueAccountId: null
+                status: armed
+                pauseReason: null
+                stopPolicy: null
+                caps:
+                  instruments:
+                    - hyperliquid:BTC
+                  maxOrderNotional: "100"
+                  maxOpenNotional: "200"
+                  maxOpenPositions: 2
+                  dailyLossStop: "0.1"
+                  maxOrdersPerDay: 10
+                  maxLeverage: 1
+                quoteAsset: usdc
+                runner: null
+                stats: null
+                createdAt: "2026-11-07T09:30:00.000Z"
+                startedAt: null
+                stoppedAt: null
+equity:
+  get:
+    operationId: getStrategyRunEquity
+    summary: Read the strategy run equity series.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/parameters.yaml#/From
+      - $ref: ../components/parameters.yaml#/To
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab-runs.yaml#/RunEquity
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                points: []
+closeTicket:
+  get:
+    operationId: getStrategyRunCloseTicket
+    summary: Get a prefilled reduce-only close ticket link.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - strategy_run_flat
+      - feature_unavailable
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab-runs.yaml#/RunCloseTicket
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                ticketUrl: /t/01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80

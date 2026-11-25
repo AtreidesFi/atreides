@@ -1,0 +1,710 @@
+# Community profile operations (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+mine:
+  get:
+    operationId: listMyProfiles
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    summary: List my profiles.
+    description: "The profiles the signed-in user owns: their personal profile and any community profile."
+    tags:
+      - Community
+    security:
+      - session: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/community.yaml#/ProfileSummary
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - id: 0193a020-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  kind: community
+                  slug: northwind-traders
+                  displayName: Northwind Traders
+                  status: active
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+profile:
+  parameters:
+    - name: profileId
+      in: path
+      required: true
+      description: The profile.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getProfile
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - profile_not_owner
+      - not_found
+    summary: Read one profile.
+    description: "The owner view: members, volume and accrued referral share."
+    tags:
+      - Community
+    security:
+      - session: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/ProfileDetail
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a020-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                kind: community
+                slug: northwind-traders
+                displayName: Northwind Traders
+                status: active
+                memberCount: 128
+                activeMembers30d: 61
+                feePayingVolume30dUsd: "2840000"
+                feePayingVolumeLifetimeUsd: "9120000"
+                accruedShare:
+                  - state: pending
+                    amount:
+                      amount: "42.10"
+                      asset: usdc
+                inviteLinks:
+                  - code: northwind
+                    usesLeft: 40
+                    expiresAt: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: profile_not_owner
+              message: Only the wallet that owns the profile can do this; sign in with it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+  put:
+    operationId: updateProfile
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - profile_not_owner
+      - display_name_invalid
+      - idempotency_conflict
+    summary: Rename a profile.
+    description: Changes the profile's display name.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/community.yaml#/UpdateProfileRequest
+          example:
+            displayName: Northwind Traders
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/ProfileDetail
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a020-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                kind: community
+                slug: northwind-traders
+                displayName: Northwind Traders
+                status: active
+                memberCount: 128
+                activeMembers30d: 61
+                feePayingVolume30dUsd: "2840000"
+                feePayingVolumeLifetimeUsd: "9120000"
+                accruedShare:
+                  - state: pending
+                    amount:
+                      amount: "42.10"
+                      asset: usdc
+                inviteLinks:
+                  - code: northwind
+                    usesLeft: 40
+                    expiresAt: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: profile_not_owner
+              message: Only the wallet that owns the profile can do this; sign in with it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+members:
+  parameters:
+    - name: profileId
+      in: path
+      required: true
+      description: The profile.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: listProfileMembers
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - profile_not_owner
+      - cursor_invalid
+    summary: List a profile's members.
+    description: Members by handle only, with their activity and fee-paying volume.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - name: activeOnly
+        in: query
+        required: false
+        description: Only members active in the last 30 days.
+        schema:
+          type: boolean
+          default: false
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/community.yaml#/ProfileMember
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - handle: trader-4f2a
+                  joinedAt: 2026-11-02T09:30:00.000Z
+                  venuesActive30d: 2
+                  feePayingVolume30dUsd: "18200"
+                  feePayingVolumeLifetimeUsd: "44100"
+              nextCursor: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: profile_not_owner
+              message: Only the wallet that owns the profile can do this; sign in with it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+codes:
+  parameters:
+    - name: profileId
+      in: path
+      required: true
+      description: The profile.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: listProfileCodes
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - profile_not_owner
+      - cursor_invalid
+    summary: List a profile's referral codes.
+    description: Every code of the profile, active and disabled.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/community.yaml#/ReferralCode
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - id: 0193a030-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  code: northwind
+                  label: Twitter
+                  status: active
+                  signUps: 12
+                  link: https://example.com/r/northwind
+                  createdAt: 2026-11-01T09:30:00.000Z
+              nextCursor: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: profile_not_owner
+              message: Only the wallet that owns the profile can do this; sign in with it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+  post:
+    operationId: createProfileCode
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - referral_code_taken
+      - referral_code_invalid
+      - profile_code_limit
+      - profile_suspended
+      - profile_not_owner
+      - idempotency_conflict
+    summary: Create a referral code for a profile.
+    description: Makes a code, the one given or a generated one.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/community.yaml#/CreateCodeRequest
+          example:
+            code: northwind
+            label: Twitter
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/ReferralCode
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a030-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                code: northwind
+                label: Twitter
+                status: active
+                signUps: 12
+                link: https://example.com/r/northwind
+                createdAt: 2026-11-01T09:30:00.000Z
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: profile_not_owner
+              message: Only the wallet that owns the profile can do this; sign in with it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+codeDisable:
+  parameters:
+    - name: profileId
+      in: path
+      required: true
+      description: The profile.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+    - name: codeId
+      in: path
+      required: true
+      description: The code.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: disableProfileCode
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - profile_not_owner
+      - not_found
+      - idempotency_conflict
+    summary: Disable a referral code.
+    description: Stops new sign-ups through the code. Members who joined through it stay.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/ReferralCode
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a030-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                code: northwind
+                label: Twitter
+                status: disabled
+                signUps: 12
+                link: https://example.com/r/northwind
+                createdAt: 2026-11-01T09:30:00.000Z
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: profile_not_owner
+              message: Only the wallet that owns the profile can do this; sign in with it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+ownerChanges:
+  parameters:
+    - name: profileId
+      in: path
+      required: true
+      description: The profile.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: requestProfileOwnerChange
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - owner_change_pending
+      - owner_change_signature_invalid
+      - profile_not_owner
+      - owner_change_target_has_personal
+      - idempotency_conflict
+    summary: Request an owner change.
+    description: Starts the move of a profile to another wallet; takes effect after the cooling-off period once the new
+      owner confirms.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/community.yaml#/RequestOwnerChangeRequest
+          example:
+            toAddress: "0x1111111111111111111111111111111111111111"
+            message: Move Northwind Traders to 0x1111111111111111111111111111111111111111
+            signature:
+              "0xababababababababababababababababababababababababababababababababababababababababababababababababababababa\
+              babababababababababababab"
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/OwnerChange
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a040-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                profileId: 0193a020-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                toAddress: "0x1111111111111111111111111111111111111111"
+                status: requested
+                effectiveAt: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: profile_not_owner
+              message: Only the wallet that owns the profile can do this; sign in with it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+ownerChangeConfirm:
+  parameters:
+    - name: changeId
+      in: path
+      required: true
+      description: The owner change.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: confirmProfileOwnerChange
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - owner_change_signature_invalid
+      - forbidden
+      - not_found
+      - idempotency_conflict
+    summary: Confirm an owner change.
+    description: The new owner signs the message we issued and confirms; the session must hold the target address.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/community.yaml#/ConfirmOwnerChangeRequest
+          example:
+            message: Accept Northwind Traders
+            signature:
+              "0xababababababababababababababababababababababababababababababababababababababababababababababababababababa\
+              babababababababababababab"
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/OwnerChange
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a040-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                profileId: 0193a020-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                toAddress: "0x1111111111111111111111111111111111111111"
+                status: confirmed
+                effectiveAt: 2026-11-09T09:30:00.000Z
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: forbidden
+              message: This credential may not do that.
+              retryable: false
+              requestId: req_01936f2e7c3a
+ownerChangeCancel:
+  parameters:
+    - name: changeId
+      in: path
+      required: true
+      description: The owner change.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: cancelProfileOwnerChange
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - forbidden
+      - not_found
+      - idempotency_conflict
+    summary: Cancel an owner change.
+    description: Either party can cancel before it takes effect.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/OwnerChange
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a040-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                profileId: 0193a020-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                toAddress: "0x1111111111111111111111111111111111111111"
+                status: cancelled
+                effectiveAt: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: forbidden
+              message: This credential may not do that.
+              retryable: false
+              requestId: req_01936f2e7c3a

@@ -1,0 +1,145 @@
+# Competition prize operations (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+prizes:
+  get:
+    operationId: listMyPrizes
+    x-owner: "11"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - cursor_invalid
+    summary: List my prizes.
+    description: The signed-in user's competition prizes and where each stands.
+    tags:
+      - Rewards
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/competitions.yaml#/MyPrize
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - awardId: 0193a009-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  competition:
+                    id: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                    title: November Open
+                  rank: 3
+                  kind: cash
+                  funder: us
+                  amount:
+                    amount: "1000"
+                    asset: usdc
+                  state: approved
+                  stateText: Claimable when claims open.
+                  needsAddressConsent: false
+              nextCursor: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+consent:
+  parameters:
+    - name: awardId
+      in: path
+      required: true
+      description: The award.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: consentPrizeAddress
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - not_found
+      - forbidden
+      - idempotency_conflict
+    summary: Consent to the payout address.
+    description: The winner agrees to be paid to their linked address. A prize funded by us needs no consent and answers
+      `forbidden`.
+    tags:
+      - Rewards
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/competitions.yaml#/MyPrize
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                awardId: 0193a009-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                competition:
+                  id: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  title: November Open
+                rank: 3
+                kind: cash
+                funder: us
+                amount:
+                  amount: "1000"
+                  asset: usdc
+                state: approved
+                stateText: Claimable when claims open.
+                needsAddressConsent: false
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: forbidden
+              message: This credential may not do that.
+              retryable: false
+              requestId: req_01936f2e7c3a

@@ -1,0 +1,89 @@
+# Attestation (03 §7.3; 05 `enclave_images`).
+attestation:
+  get:
+    operationId: getAttestation
+    summary: Read the live enclave image hash, source commit, policies hash and latest attestation document.
+    tags:
+      - Venues
+    x-owner: "05"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    security: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Venue
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/venues.yaml#/AttestationInfo
+                - &a1
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                venue: extended
+                imageSha384: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                sourceCommit: c750d2e0
+                policiesSha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+                publishedAt: 2026-11-07T09:30:00.000Z
+                document: null
+attestationChallenge:
+  post:
+    operationId: challengeAttestation
+    summary: Get a fresh attestation document for a nonce the browser made.
+    tags:
+      - Venues
+    x-owner: "05"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - unavailable
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/venues.yaml#/AttestationChallengeRequest
+          example:
+            venue: extended
+            nonce: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/venues.yaml#/AttestationChallenge
+                - *a1
+            example:
+              ok: true
+              data:
+                document: AAEC
+                imageSha384: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

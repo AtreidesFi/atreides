@@ -1,0 +1,193 @@
+# Leverage, margin mode and isolated margin of one venue account (03 §7.5a, API-062).
+leverage:
+  parameters:
+    - name: accountId
+      in: path
+      required: true
+      description: A venue account id.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: setLeverage
+    summary: Set the leverage of one instrument on a venue account.
+    description: "Trade scope. The gateway runs its checks before anything is signed: the opening-state rules, the key's `max_leverage` and the mainnet canary profile. The venue needs both a leverage and a margin mode, so `marginMode` is read as required by the gateway until it can be read from the venue."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: target
+    x-refusals:
+      - account_not_bound
+      - account_not_connected
+      - limit_exceeded
+      - venue_closed
+      - kill_switch_active
+      - venue_rejected
+      - unknown_outcome
+      - feature_unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/execution.yaml#/SetLeverageRequest
+          example:
+            instrumentId: hyperliquid:BTC
+            leverage: 2
+            marginMode: cross
+    responses:
+      "200":
+        description: The setting, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/execution.yaml#/LeverageResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                instrumentId: hyperliquid:BTC
+                leverage: 2
+                marginMode: cross
+margin-mode:
+  parameters:
+    - name: accountId
+      in: path
+      required: true
+      description: A venue account id.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: setMarginMode
+    summary: Set the margin mode of one instrument on a venue account.
+    description: "Trade scope. Refused `feature_unavailable` until the gateway can read the venue's current leverage to sign the change."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: target
+    x-refusals:
+      - account_not_bound
+      - account_not_connected
+      - limit_exceeded
+      - venue_closed
+      - kill_switch_active
+      - venue_rejected
+      - unknown_outcome
+      - feature_unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/execution.yaml#/SetMarginModeRequest
+          example:
+            instrumentId: hyperliquid:BTC
+            marginMode: isolated
+    responses:
+      "200":
+        description: The setting, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/execution.yaml#/LeverageResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                instrumentId: hyperliquid:BTC
+                leverage: 2
+                marginMode: isolated
+isolated-margin:
+  parameters:
+    - name: accountId
+      in: path
+      required: true
+      description: A venue account id.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: adjustIsolatedMargin
+    summary: Add margin to, or remove it from, an isolated position.
+    description: "Trade scope. A positive `amountUsd` adds, a negative one removes; `amountUsd` is a change, not a target, so a repeat would change the margin twice: send an `Idempotency-Key`, and retry a lost answer with the same key. No route moves funds. Refused `feature_unavailable` until the gateway has the adjust-margin action."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: header
+    x-refusals:
+      - account_not_bound
+      - account_not_connected
+      - kill_switch_active
+      - venue_closed
+      - venue_rejected
+      - idempotency_conflict
+      - unknown_outcome
+      - feature_unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/execution.yaml#/AdjustIsolatedMarginRequest
+          example:
+            instrumentId: hyperliquid:BTC
+            amountUsd: "25"
+    responses:
+      "200":
+        description: The setting, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/execution.yaml#/MarginResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                instrumentId: hyperliquid:BTC
+                marginUsd: "125"
+                liquidationPx: "61000"

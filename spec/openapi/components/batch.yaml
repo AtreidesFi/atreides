@@ -1,0 +1,82 @@
+# Batch place and cancel (03 §7.5a, API-061; 05 §10b.3). Requests are closed (01 §5.12 rule 1).
+BatchPlaceRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - orders
+  properties:
+    orders:
+      description: 1 to `ATR_API_BATCH_MAX` (default 20) plain intent orders. A relay, a routed order, `routeId` or `strategyRunId` in any item refuses the whole batch.
+      type: array
+      minItems: 1
+      maxItems: 50
+      items:
+        $ref: ./orders.yaml#/PlaceOrderIntent
+BatchCancelItem:
+  type: object
+  additionalProperties: false
+  required:
+    - accountId
+    - clientOrderId
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    clientOrderId:
+      $ref: ./primitives.yaml#/ClientOrderId
+BatchCancelRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - cancels
+  properties:
+    cancels:
+      type: array
+      minItems: 1
+      maxItems: 50
+      items:
+        $ref: "#/BatchCancelItem"
+ItemRefusal:
+  type: object
+  description: What the pipeline said for one item, or what a real order would be told (a dry run). `details` holds the values the message was filled from.
+  additionalProperties: false
+  required: [code, message, details]
+  properties:
+    code:
+      $ref: ./envelope.yaml#/ErrorCode
+    message:
+      type: string
+    details:
+      type: object
+      additionalProperties:
+        type: [string, number, boolean, "null"]
+BatchItemResult:
+  type: object
+  description: The answer for one item, at the position of the item in the request (03 §7.5a). An item refused does not stop the others.
+  additionalProperties: false
+  required: [index, clientOrderId, ok, order, refusal]
+  properties:
+    index:
+      type: integer
+      minimum: 0
+    clientOrderId:
+      type: [string, "null"]
+    ok:
+      type: boolean
+    order:
+      oneOf:
+        - $ref: ./orders.yaml#/Order
+        - type: "null"
+    refusal:
+      oneOf:
+        - $ref: "#/ItemRefusal"
+        - type: "null"
+BatchResult:
+  type: object
+  additionalProperties: false
+  required:
+    - results
+  properties:
+    results:
+      type: array
+      items:
+        $ref: "#/BatchItemResult"

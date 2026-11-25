@@ -1,0 +1,436 @@
+# Run requests and results (09 §§5.6, 5.8, 6.2).
+RunCaps:
+  type: object
+  additionalProperties: false
+  required:
+    - instruments
+    - maxOrderNotional
+    - maxOpenNotional
+    - maxOpenPositions
+    - dailyLossStop
+    - maxOrdersPerDay
+    - maxLeverage
+  properties:
+    instruments:
+      oneOf:
+        - type: array
+          items:
+            $ref: ./venues.yaml#/InstrumentId
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+        - type: object
+          additionalProperties: false
+          required:
+            - venue
+            - cls
+          properties:
+            venue:
+              $ref: ./primitives.yaml#/VenueId
+            cls:
+              $ref: ./primitives.yaml#/InstrumentClass
+    maxOrderNotional:
+      $ref: ./primitives.yaml#/DecStr
+    maxOpenNotional:
+      $ref: ./primitives.yaml#/DecStr
+    maxOpenPositions:
+      type: integer
+      minimum: 1
+      maximum: 50
+    dailyLossStop:
+      $ref: ./primitives.yaml#/DecStr
+    maxOrdersPerDay:
+      type: integer
+      minimum: 1
+      maximum: 10000
+    maxLeverage:
+      type: integer
+      minimum: 1
+CreateStrategyRunRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - versionId
+    - mode
+    - caps
+  properties:
+    versionId:
+      $ref: ./primitives.yaml#/Uuid
+    mode:
+      type: string
+      enum:
+        - paper
+        - direct
+        - gateway
+    venueAccountId:
+      $ref: ./primitives.yaml#/Uuid
+    caps:
+      $ref: ./lab-runs.yaml#/RunCaps
+RunnerSnippet:
+  type: object
+  additionalProperties: false
+  required:
+    - ts
+    - python
+  properties:
+    ts:
+      type: string
+    python:
+      type: string
+StrategyRunCreated:
+  type: object
+  additionalProperties: false
+  required:
+    - run
+    - runnerSnippet
+  properties:
+    run:
+      $ref: ./lab.yaml#/RunView
+    runnerSnippet:
+      $ref: ./lab-runs.yaml#/RunnerSnippet
+RunHeartbeatRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - runnerLang
+    - runnerVersion
+    - specSha256
+    - state
+    - lastDecisionAt
+    - holdings
+    - note
+  properties:
+    runnerLang:
+      type: string
+      enum:
+        - ts
+        - python
+    runnerVersion:
+      type: string
+      minLength: 1
+      maxLength: 80
+    specSha256:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    state:
+      type: string
+      enum:
+        - running
+        - paused_by_runner
+    lastDecisionAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    holdings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - instrument
+          - side
+          - size
+        properties:
+          instrument:
+            $ref: ./venues.yaml#/InstrumentId
+          side:
+            type: string
+            enum:
+              - long
+              - short
+          size:
+            $ref: ./primitives.yaml#/DecStr
+      maxItems: 50
+    note:
+      oneOf:
+        - type: string
+          maxLength: 240
+        - type: "null"
+RunHeartbeatAnswer:
+  type: object
+  additionalProperties: false
+  required:
+    - status
+    - pauseReason
+    - stopPolicy
+    - caps
+    - capsState
+    - nextHeartbeatInMs
+  properties:
+    status:
+      type: string
+      enum:
+        - armed
+        - live
+        - paused
+        - lost
+        - stopping
+        - stopped
+        - failed
+    pauseReason:
+      oneOf:
+        - type: string
+        - type: "null"
+    stopPolicy:
+      oneOf:
+        - type: string
+          enum:
+            - leave_positions
+            - close_positions
+        - type: "null"
+    caps:
+      $ref: ./lab-runs.yaml#/RunCaps
+    capsState:
+      type: object
+      additionalProperties: false
+      required:
+        - dailyLossHit
+        - openNotional
+        - ordersToday
+      properties:
+        dailyLossHit:
+          type: boolean
+        openNotional:
+          $ref: ./primitives.yaml#/DecStr
+        ordersToday:
+          type: integer
+          minimum: 0
+    nextHeartbeatInMs:
+      type: integer
+      minimum: 5000
+      maximum: 60000
+RunOrderReports:
+  type: object
+  additionalProperties: false
+  required:
+    - reports
+  properties:
+    reports:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - clientOrderId
+          - venueClientId
+          - intent
+          - instrument
+          - side
+          - reduceOnly
+          - decidedAt
+        properties:
+          clientOrderId:
+            $ref: ./primitives.yaml#/ClientOrderId
+          venueClientId:
+            oneOf:
+              - type: string
+                minLength: 1
+                maxLength: 160
+              - type: "null"
+          intent:
+            type: string
+            enum:
+              - open
+              - add
+              - close
+              - exit_tp
+              - exit_sl
+              - exit_time
+              - exit_rule
+              - stop_close
+          instrument:
+            $ref: ./venues.yaml#/InstrumentId
+          side:
+            type: string
+            enum:
+              - buy
+              - sell
+          reduceOnly:
+            type: boolean
+          decidedAt:
+            $ref: ./primitives.yaml#/Instant
+      minItems: 1
+      maxItems: 100
+RunOrderReportCount:
+  type: object
+  additionalProperties: false
+  required:
+    - accepted
+    - duplicates
+  properties:
+    accepted:
+      type: integer
+      minimum: 0
+    duplicates:
+      type: integer
+      minimum: 0
+RunEventReports:
+  type: object
+  additionalProperties: false
+  required:
+    - events
+  properties:
+    events:
+      type: array
+      items:
+        oneOf:
+          - type: object
+            additionalProperties: false
+            required:
+              - kind
+              - at
+              - data
+            properties:
+              kind:
+                type: string
+                enum:
+                  - order_reported
+              at:
+                $ref: ./primitives.yaml#/Instant
+              data:
+                type: object
+                additionalProperties: false
+                required:
+                  - clientOrderId
+                  - venueOrderId
+                properties:
+                  clientOrderId:
+                    $ref: ./primitives.yaml#/ClientOrderId
+                  venueOrderId:
+                    oneOf:
+                      - type: string
+                        minLength: 1
+                        maxLength: 160
+                      - type: "null"
+          - type: object
+            additionalProperties: false
+            required:
+              - kind
+              - at
+              - data
+            properties:
+              kind:
+                type: string
+                enum:
+                  - order_refused
+              at:
+                $ref: ./primitives.yaml#/Instant
+              data:
+                type: object
+                additionalProperties: false
+                required:
+                  - clientOrderId
+                  - code
+                properties:
+                  clientOrderId:
+                    $ref: ./primitives.yaml#/ClientOrderId
+                  code:
+                    type: string
+                    minLength: 1
+                    maxLength: 96
+          - type: object
+            additionalProperties: false
+            required:
+              - kind
+              - at
+              - data
+            properties:
+              kind:
+                type: string
+                enum:
+                  - unknown_outcome
+              at:
+                $ref: ./primitives.yaml#/Instant
+              data:
+                type: object
+                additionalProperties: false
+                required:
+                  - clientOrderId
+                properties:
+                  clientOrderId:
+                    $ref: ./primitives.yaml#/ClientOrderId
+          - type: object
+            additionalProperties: false
+            required:
+              - kind
+              - at
+              - data
+            properties:
+              kind:
+                type: string
+                enum:
+                  - decision
+                  - input_stale
+                  - foreign_position
+              at:
+                $ref: ./primitives.yaml#/Instant
+              data:
+                type: object
+                additionalProperties:
+                  type:
+                    - string
+                    - number
+                    - boolean
+                    - "null"
+                maxProperties: 40
+      minItems: 1
+      maxItems: 100
+RunEventCount:
+  type: object
+  additionalProperties: false
+  required:
+    - accepted
+  properties:
+    accepted:
+      type: integer
+      minimum: 0
+RunStopRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - policy
+  properties:
+    policy:
+      type: string
+      enum:
+        - leave_positions
+        - close_positions
+RunEquity:
+  type: object
+  additionalProperties: false
+  required:
+    - points
+  properties:
+    points:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - at
+          - equity
+          - realizedPnl
+          - unrealizedPnl
+          - openNotional
+          - marksFresh
+        properties:
+          at:
+            $ref: ./primitives.yaml#/Instant
+          equity:
+            $ref: ./primitives.yaml#/DecStr
+          realizedPnl:
+            $ref: ./primitives.yaml#/DecStr
+          unrealizedPnl:
+            $ref: ./primitives.yaml#/DecStr
+          openNotional:
+            $ref: ./primitives.yaml#/DecStr
+          marksFresh:
+            type: boolean
+RunCloseTicket:
+  type: object
+  additionalProperties: false
+  required:
+    - ticketUrl
+  properties:
+    ticketUrl:
+      type: string

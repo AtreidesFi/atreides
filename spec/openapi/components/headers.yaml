@@ -1,0 +1,104 @@
+# The headers of the API (03 §3.1, §5.3, §6.3, §6.4; 01 §5.12 rules 2, 5 and 10). Response headers are Header Objects
+# (components.headers in the bundle); request headers are parameter objects (components.parameters).
+# The X-Api-* request headers belong to the `apiKey` security scheme, so no operation lists them as parameters; they are
+# here so the reference and the SDK signing code name them in one place (03 §5.3).
+
+# Response headers.
+X-Request-Id:
+  description: >-
+    Sent on every answer. A UUIDv7 made on arrival, or the caller's X-Request-Id when it is a valid UUIDv7 not seen in
+    the last minute. Equals `requestId` in a refusal body; quote it when asking for help.
+  required: true
+  schema:
+    $ref: ./primitives.yaml#/Uuid
+RateLimit-Limit:
+  description: The size of the tightest token bucket that applies to this request.
+  required: true
+  schema:
+    type: integer
+    minimum: 0
+RateLimit-Remaining:
+  description: Tokens left in that bucket.
+  required: true
+  schema:
+    type: integer
+    minimum: 0
+RateLimit-Reset:
+  description: Seconds until that bucket is full again.
+  required: true
+  schema:
+    type: integer
+    minimum: 0
+Retry-After:
+  description: Sent with 429. Seconds to wait, rounded up.
+  schema:
+    type: integer
+    minimum: 0
+Deprecation:
+  description: Sent by a deprecated operation.
+  schema:
+    type: string
+Sunset:
+  description: Sent by a deprecated operation. The date after which it may stop answering.
+  schema:
+    type: string
+
+# Request headers.
+IdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  required: true
+  description: >-
+    Required by operations whose `x-idempotency` is `header`. The same key with the same request returns the stored
+    answer for 24 hours; the same key with another request is 409 `idempotency_conflict`.
+  schema:
+    type: string
+    pattern: "^[A-Za-z0-9_-]{8,64}$"
+  example: 3f9d2c1a-7b44-4e0a
+SecondFactor:
+  name: X-Second-Factor
+  in: header
+  required: false
+  description: >-
+    The authenticator code, for the operations that ask for it when the user has turned it on. A missing or wrong code
+    is the refusal `second_factor_required` or `second_factor_invalid`. Sessions only.
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 32
+  example: "123456"
+XApiKey:
+  name: X-Api-Key
+  in: header
+  required: true
+  description: The key text, `live_…` or `test_…`.
+  schema:
+    type: string
+  example: live_abc
+XApiTimestamp:
+  name: X-Api-Timestamp
+  in: header
+  required: true
+  description: Milliseconds since the Unix epoch, as a decimal string.
+  schema:
+    type: string
+    pattern: "^[0-9]{1,16}$"
+  example: "1794043800000"
+XApiNonce:
+  name: X-Api-Nonce
+  in: header
+  required: true
+  description: 16 to 64 characters, never used before with this key. The SDKs send 22 characters of base64url.
+  schema:
+    type: string
+    pattern: "^[A-Za-z0-9_-]{16,64}$"
+  example: 5h0Qd3nXwV1uYz8aB2cE7g
+XApiSignature:
+  name: X-Api-Signature
+  in: header
+  required: true
+  description: The base64url, without padding, of the 64-byte Ed25519 signature of the signed string (03 §5.3).
+  schema:
+    type: string
+    pattern: "^[A-Za-z0-9_-]{86}$"
+  example: 5h0Qd3nXwV1uYz8aB2cE7g5h0Qd3nXwV1uYz8aB2cE7g5h0Qd3nXwV1uYz8aB2cE7g5h0Qd3nXwV1uYz8aB2cE7g

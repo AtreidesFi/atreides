@@ -1,0 +1,399 @@
+# The stream frames of 03 §11.2. x-stream on openStream names the two frame schemas.
+Channel:
+  type: string
+  description: user, venues, research_cards, book:<instrumentId>, trades:<instrumentId>, candles:<instrumentId>:<tf>, mark:<instrumentId>.
+  pattern: ^(user|venues|research_cards|book:.+|trades:.+|candles:.+:(1m|5m|15m|1h|4h|1d)|mark:.+)$
+  examples:
+    - user
+    - book:hyperliquid:BTC
+StreamClientFrame:
+  description: A JSON text frame from the client, at most 64 KiB.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - op
+        - id
+        - channels
+      properties:
+        op:
+          const: subscribe
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        channels:
+          type: array
+          items:
+            $ref: "#/Channel"
+        since:
+          description: Decimal `seq` of the `user` channel to resume after.
+          type: string
+          pattern: ^[0-9]+$
+    - type: object
+      additionalProperties: false
+      required:
+        - op
+        - id
+        - channels
+      properties:
+        op:
+          const: unsubscribe
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        channels:
+          type: array
+          items:
+            $ref: "#/Channel"
+    - type: object
+      additionalProperties: false
+      required:
+        - op
+        - id
+      properties:
+        op:
+          const: ping
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+    - type: object
+      description: Refreshes the dead-man of these accounts, as POST /v1/deadman with the armed timeout. Trade scope or session.
+      additionalProperties: false
+      required:
+        - op
+        - id
+        - accountIds
+      properties:
+        op:
+          const: heartbeat
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        accountIds:
+          type: array
+          items:
+            $ref: ./primitives.yaml#/Uuid
+  discriminator:
+    propertyName: op
+StreamServerFrame:
+  description: A JSON text frame from the server. `hello` comes first.
+  oneOf:
+    - type: object
+      required:
+        - type
+        - connectionId
+        - serverTime
+        - heartbeatMs
+        - principal
+        - retainedFromSeq
+      properties:
+        type:
+          const: hello
+        connectionId:
+          type: string
+        serverTime:
+          $ref: ./primitives.yaml#/Instant
+        heartbeatMs:
+          const: 15000
+        principal:
+          type: string
+          enum:
+            - session
+            - api_key
+            - anonymous
+        retainedFromSeq:
+          oneOf:
+            - type: string
+              pattern: ^[0-9]+$
+            - type: "null"
+    - type: object
+      required:
+        - type
+        - id
+        - channels
+      properties:
+        type:
+          const: subscribed
+        id:
+          type: string
+        channels:
+          type: array
+          items:
+            $ref: "#/Channel"
+    - type: object
+      required:
+        - type
+        - id
+        - channels
+      properties:
+        type:
+          const: unsubscribed
+        id:
+          type: string
+        channels:
+          type: array
+          items:
+            $ref: "#/Channel"
+    - type: object
+      required:
+        - type
+        - channel
+        - seq
+        - kind
+        - at
+        - subject
+        - data
+      properties:
+        type:
+          const: event
+        channel:
+          const: user
+        seq:
+          type: string
+          pattern: ^[0-9]+$
+        kind:
+          type: string
+          description: Known user events are listed in x-known-event-kinds. Clients may receive additional kinds.
+          x-known-event-kinds:
+            - api_key.updated
+            - balance.snapshot
+            - chat_link.updated
+            - claim.updated
+            - community.member_joined
+            - community.owner_change
+            - competition.entry_updated
+            - competition.standing
+            - competition.status
+            - connection.updated
+            - deadman.updated
+            - fill.reconciled
+            - fill.recorded
+            - notice.raised
+            - order.updated
+            - position.snapshot
+            - prize.updated
+            - rewards.updated
+            - route.updated
+            - session.revoked
+            - ticket.updated
+          not: { enum: [route.updated, order.updated] }
+        at:
+          $ref: ./primitives.yaml#/Instant
+        subject:
+          type: object
+          required:
+            - type
+            - id
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+        data:
+          type: object
+          additionalProperties: true
+    - type: object
+      additionalProperties: false
+      required: [type, channel, seq, kind, at, subject, data]
+      properties:
+        type: { const: event }
+        channel: { const: user }
+        seq: { type: string, pattern: "^[0-9]+$" }
+        kind: { const: route.updated }
+        at: { $ref: ./primitives.yaml#/Instant }
+        subject:
+          type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type: { const: route }
+            id: { $ref: ./primitives.yaml#/Uuid }
+        data:
+          type: object
+          additionalProperties: false
+          required: [route]
+          properties:
+            route: { $ref: ./route.yaml#/Route }
+    - type: object
+      description: "An order changed state or took a fill (05 each state change). A final order carries its execution
+        report. A key bound to some accounts receives only the orders of those accounts."
+      additionalProperties: false
+      required: [type, channel, seq, kind, at, subject, data]
+      properties:
+        type: { const: event }
+        channel: { const: user }
+        seq: { type: string, pattern: "^[0-9]+$" }
+        kind: { const: order.updated }
+        at: { $ref: ./primitives.yaml#/Instant }
+        subject:
+          type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type: { const: order }
+            id: { $ref: ./primitives.yaml#/Uuid }
+        data:
+          type: object
+          additionalProperties: false
+          required: [order]
+          properties:
+            order: { $ref: ./orders.yaml#/Order }
+    - type: object
+      required:
+        - type
+        - channel
+        - reason
+        - latestSeq
+      properties:
+        type:
+          const: reset
+        channel:
+          const: user
+        reason:
+          type: string
+          enum:
+            - since_too_old
+            - gap
+            - server_restart
+        latestSeq:
+          type: string
+          pattern: ^[0-9]+$
+    - type: object
+      required:
+        - type
+        - channel
+        - kind
+        - at
+        - data
+      properties:
+        type:
+          const: broadcast
+        channel:
+          const: venues
+        kind:
+          type: string
+          enum:
+            - venue.state
+            - venue.status
+        at:
+          $ref: ./primitives.yaml#/Instant
+        data:
+          type: object
+          additionalProperties: true
+    - type: object
+      required: [type, channel, kind, at, data]
+      properties:
+        type: { const: broadcast }
+        channel: { const: research_cards }
+        kind: { const: research_cards.changed }
+        at: { $ref: ./primitives.yaml#/Instant }
+        data:
+          type: object
+          additionalProperties: false
+          required: [at]
+          properties:
+            at: { $ref: ./primitives.yaml#/Instant }
+    - type: object
+      required:
+        - type
+        - channel
+        - at
+        - data
+      properties:
+        type:
+          const: market
+        channel:
+          $ref: "#/Channel"
+        at:
+          $ref: ./primitives.yaml#/Instant
+        data:
+          type: object
+          additionalProperties: true
+    - type: object
+      required:
+        - type
+        - id
+        - op
+        - results
+      properties:
+        type:
+          const: ack
+        id:
+          type: string
+        op:
+          const: heartbeat
+        results:
+          type: array
+          items:
+            type: object
+            required:
+              - accountId
+              - ok
+              - code
+              - firesAt
+            properties:
+              accountId:
+                $ref: ./primitives.yaml#/Uuid
+              ok:
+                type: boolean
+              code:
+                type:
+                  - string
+                  - "null"
+              firesAt:
+                oneOf:
+                  - $ref: ./primitives.yaml#/Instant
+                  - type: "null"
+    - type: object
+      required:
+        - type
+        - id
+        - serverTime
+      properties:
+        type:
+          const: pong
+        id:
+          type: string
+        serverTime:
+          $ref: ./primitives.yaml#/Instant
+    - type: object
+      required:
+        - type
+        - id
+        - code
+        - message
+      properties:
+        type:
+          const: error
+        id:
+          type:
+            - string
+            - "null"
+        code:
+          type: string
+        message:
+          type: string
+    - type: object
+      required:
+        - type
+        - reason
+        - reconnectAfterMs
+      properties:
+        type:
+          const: closing
+        reason:
+          type: string
+          enum:
+            - restart
+            - revoked
+            - slow_consumer
+            - idle
+        reconnectAfterMs:
+          type: integer
+          minimum: 0
+  discriminator:
+    propertyName: type

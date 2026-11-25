@@ -1,0 +1,1106 @@
+# OpenAPI source. This file references the operation and schema files below.
+openapi: 3.1.0
+info:
+  title: Atreides API
+  version: 1.0.0
+  description: >-
+    The REST API under /v1. Every answer is an envelope: `{ ok: true, data }` or, for a decided refusal, HTTP 200 with
+    `{ ok: false, code, message, retryable, requestId }`; transport errors carry the same body with their HTTP status.
+    Inside v1 changes are additive only: ignore fields you do not know and map codes and enum values you do not know
+    to a generic case.
+servers:
+  - url: https://api.atreides.finance
+    description: The Atreides public API.
+tags:
+  - name: Auth
+    description: Sign-in, sessions, wallets, identities and the second factor.
+  - name: Keys
+    description: API keys.
+  - name: Venues
+    description: Venues, instruments and attestation.
+  - name: Markets
+    description: Public market data and comparisons.
+  - name: Fees
+    description: The fee schedule and quotes.
+  - name: Accounts
+    description: Venue accounts, connections and limits.
+  - name: Orders
+    description: Placing, changing and cancelling orders.
+  - name: Reads
+    description: Positions, balances, fills, equity and monitor.
+  - name: Rewards
+    description: Rewards, claims and tier.
+  - name: Assistant
+    description: The assistant, tickets, notes, notices, alerts and chat links.
+  - name: Community
+    description: Competitions, passport, referrals and invites.
+  - name: Lab
+    description: Strategies, runs, exports and the library.
+  - name: Vaults
+    description: Vaults.
+  - name: Web
+    description: Pages of the web app that have their own data.
+  - name: Security
+    description: Incident reports and security status.
+  - name: Stream
+    description: The WebSocket stream.
+x-tagGroups:
+  - name: Account
+    tags: [Auth, Keys, Accounts, Security]
+  - name: Markets and trading
+    tags: [Venues, Markets, Fees, Orders, Reads, Stream]
+  - name: Products
+    tags: [Rewards, Assistant, Community, Lab, Vaults, Web]
+paths:
+  /v1/venues/binance/status:
+    $ref: ./paths/binance.yaml#/status
+  /v1/venues/binance/device-orders:
+    $ref: ./paths/binance.yaml#/deviceOrders
+  /v1/venues/binance/device-orders/{clientOrderId}/outcome:
+    $ref: ./paths/binance.yaml#/outcome
+  /v1/connections/binance/browser-key:
+    $ref: ./paths/binance.yaml#/browserKey
+  /v1/connections/binance/oauth/start:
+    $ref: ./paths/binance.yaml#/fastStart
+  /oauth/binance/callback:
+    $ref: ./paths/binance.yaml#/fastFinish
+  /v1/connections/binance/grants/{grantId}:
+    $ref: ./paths/binance.yaml#/fastGrant
+  /v1/connections/binance/{venueAccountId}/disconnect:
+    $ref: ./paths/binance.yaml#/disconnect
+  /v1/follows:
+    $ref: ./paths/follows.yaml#/follows
+  /v1/follows/{id}/end:
+    $ref: ./paths/follows.yaml#/end
+  /v1/venues:
+    $ref: ./paths/venues.yaml#/venues
+  /v1/venues/{venue}:
+    $ref: ./paths/venues.yaml#/venue
+  /v1/venues/{venue}/budget:
+    $ref: ./paths/venues.yaml#/venueBudget
+  /v1/instruments:
+    $ref: ./paths/instruments.yaml#/instruments
+  /v1/instruments/{instrumentId}:
+    $ref: ./paths/instruments.yaml#/instrument
+  /v1/markets/{instrumentId}/candles:
+    $ref: ./paths/markets.yaml#/candles
+  /v1/markets/{instrumentId}/book:
+    $ref: ./paths/markets.yaml#/book
+  /v1/markets/{instrumentId}/trades:
+    $ref: ./paths/markets.yaml#/trades
+  /v1/markets/{instrumentId}/funding:
+    $ref: ./paths/markets.yaml#/funding
+  /v1/market-snapshot:
+    $ref: ./paths/market-views.yaml#/marketSnapshot
+  /v1/compare/funding:
+    $ref: ./paths/market-views.yaml#/compareFunding
+  /v1/compare/prices:
+    $ref: ./paths/market-views.yaml#/comparePrices
+  /v1/coverage:
+    $ref: ./paths/market-views.yaml#/coverage
+  /v1/help:
+    $ref: ./paths/market-views.yaml#/help
+  /v1/attestation:
+    $ref: ./paths/attestation.yaml#/attestation
+  /v1/attestation/challenge:
+    $ref: ./paths/attestation.yaml#/attestationChallenge
+  /v1/fees:
+    $ref: ./paths/fees.yaml#/fees
+  /v1/fees/quote:
+    $ref: ./paths/fees.yaml#/feeQuote
+  /v1/accounts:
+    $ref: ./paths/accounts.yaml#/accounts
+  /v1/accounts/{accountId}:
+    $ref: ./paths/accounts.yaml#/account
+  /v1/accounts/link/challenge:
+    $ref: ./paths/accounts.yaml#/linkChallenge
+  /v1/accounts/link:
+    $ref: ./paths/accounts.yaml#/link
+  /v1/connections:
+    $ref: ./paths/connections.yaml#/connections
+  /v1/connections/sealing-key:
+    $ref: ./paths/connections.yaml#/sealingKey
+  /v1/connections/{connectionId}:
+    $ref: ./paths/connections.yaml#/connection
+  /v1/connections/{venue}/oauth/start:
+    $ref: ./paths/connections-cex.yaml#/oauthStart
+  /v1/connections/{venue}/oauth/callback:
+    $ref: ./paths/connections-cex.yaml#/oauthCallback
+  /v1/connections/{venue}/offer:
+    $ref: ./paths/connections.yaml#/offer
+  /v1/connections/offers/{offerId}:
+    $ref: ./paths/connections.yaml#/offerById
+  /v1/connections/offers/{offerId}/complete:
+    $ref: ./paths/connections.yaml#/complete
+  /v1/connections/polymarket/prepare/{prepareId}:
+    $ref: ./paths/connections-polymarket.yaml#/prepare
+  /v1/connections/polymarket/complete:
+    $ref: ./paths/connections-polymarket.yaml#/complete
+  /v1/connections/{connectionId}/polymarket/move-funds:
+    $ref: ./paths/connections-polymarket.yaml#/moveFunds
+  /v1/connections/{connectionId}/renew:
+    $ref: ./paths/connections.yaml#/renew
+  /v1/connections/{connectionId}/recheck:
+    $ref: ./paths/connections.yaml#/recheck
+  /v1/connections/{connectionId}/revoke:
+    $ref: ./paths/connections.yaml#/revoke
+  /v1/connections/{connectionId}/disconnect:
+    $ref: ./paths/connections.yaml#/disconnect
+  /v1/limits:
+    $ref: ./paths/limits.yaml#/limits
+  /v1/bots/templates:
+    $ref: ./paths/bots.yaml#/botTemplates
+  /v1/bots:
+    $ref: ./paths/bots.yaml#/bots
+  /v1/bots/{botId}:
+    $ref: ./paths/bots.yaml#/bot
+  /v1/bots/{botId}/grant:
+    $ref: ./paths/bots.yaml#/botGrant
+  /v1/bots/{botId}/file:
+    $ref: ./paths/bots.yaml#/botFile
+  /v1/bots/{botId}/start:
+    $ref: ./paths/bots.yaml#/botStart
+  /v1/bots/{botId}/stop:
+    $ref: ./paths/bots.yaml#/botStop
+  /v1/bots/{botId}/restart:
+    $ref: ./paths/bots.yaml#/botRestart
+  /v1/bots/{botId}/logs:
+    $ref: ./paths/bots.yaml#/botLogs
+  /v1/vaults:
+    $ref: ./paths/vaults.yaml#/vaults
+  /v1/vaults/matrix:
+    $ref: ./paths/vaults.yaml#/vault-matrix
+  /v1/vaults/mine:
+    $ref: ./paths/vaults.yaml#/my-vaults
+  /v1/vaults/{id}:
+    $ref: ./paths/vaults.yaml#/vault
+  /v1/vaults/{id}/index:
+    $ref: ./paths/vaults.yaml#/vault-index
+  /v1/vaults/{id}/log:
+    $ref: ./paths/vaults.yaml#/vault-log
+  /v1/vaults/{id}/exposure:
+    $ref: ./paths/vaults.yaml#/vault-exposure
+  /v1/vaults/{id}/records:
+    $ref: ./paths/vaults.yaml#/vault-records
+  /v1/vaults/{vaultId}/notice:
+    $ref: ./paths/vault-mutations.yaml#/notice
+  /v1/vaults/{vaultId}/accounts:
+    $ref: ./paths/vault-mutations.yaml#/accounts
+  /v1/vaults/accounts/{accountId}/registration:
+    $ref: ./paths/vault-mutations.yaml#/registration
+  /v1/vaults/accounts/{accountId}/deposits:
+    $ref: ./paths/vault-mutations.yaml#/deposit
+  /v1/vaults/accounts/{accountId}/redemptions:
+    $ref: ./paths/vault-mutations.yaml#/redemption
+  /v1/vaults/redemptions/{redemptionId}/sign:
+    $ref: ./paths/vault-mutations.yaml#/redemption-sign
+  /v1/vaults/requests/{requestId}/sign:
+    $ref: ./paths/vault-mutations.yaml#/request-sign
+  /v1/vaults/requests/{requestId}/decline:
+    $ref: ./paths/vault-mutations.yaml#/request-decline
+  /v1/vaults/{vaultId}/orders:
+    $ref: ./paths/vault-mutations.yaml#/orders
+  "/v1/auth/nonce":
+    $ref: ./paths/auth.yaml#/nonce
+  "/v1/auth/siwe":
+    $ref: ./paths/auth.yaml#/siwe
+  "/v1/auth/telegram":
+    $ref: ./paths/auth.yaml#/telegram
+  "/v1/auth/discord/start":
+    $ref: ./paths/auth.yaml#/discordStart
+  "/v1/auth/discord/callback":
+    $ref: ./paths/auth.yaml#/discordCallback
+  "/v1/auth/logout":
+    $ref: ./paths/auth.yaml#/logout
+  "/v1/auth/logout-all":
+    $ref: ./paths/auth.yaml#/logoutAll
+  "/v1/auth/sessions":
+    $ref: ./paths/auth.yaml#/sessions
+  "/v1/auth/sessions/{sessionId}/revoke":
+    $ref: ./paths/auth.yaml#/sessionRevoke
+  "/v1/me":
+    $ref: ./paths/me.yaml#/me
+  "/v1/me/delete":
+    $ref: ./paths/me.yaml#/meDelete
+  "/v1/me/terms":
+    $ref: ./paths/me.yaml#/meTerms
+  "/v1/wallets":
+    $ref: ./paths/wallets.yaml#/wallets
+  "/v1/wallets/move":
+    $ref: ./paths/wallets.yaml#/walletsMove
+  "/v1/wallets/{walletId}/unlink":
+    $ref: ./paths/wallets.yaml#/walletUnlink
+  "/v1/wallets/{walletId}/payout":
+    $ref: ./paths/wallets.yaml#/walletPayout
+  "/v1/identities":
+    $ref: ./paths/identities.yaml#/identities
+  "/v1/identities/telegram":
+    $ref: ./paths/identities.yaml#/identitiesTelegram
+  "/v1/identities/{identityId}/unlink":
+    $ref: ./paths/identities.yaml#/identityUnlink
+  "/v1/security":
+    $ref: ./paths/security.yaml#/security
+  "/v1/security/totp/setup":
+    $ref: ./paths/security.yaml#/totpSetup
+  "/v1/security/totp/enable":
+    $ref: ./paths/security.yaml#/totpEnable
+  "/v1/security/totp/disable":
+    $ref: ./paths/security.yaml#/totpDisable
+  "/v1/security/recovery-codes":
+    $ref: ./paths/security.yaml#/recoveryCodes
+  "/v1/api-keys":
+    $ref: ./paths/api-keys.yaml#/apiKeys
+  "/v1/api-keys/{keyId}":
+    $ref: ./paths/api-keys.yaml#/apiKey
+  "/v1/api-keys/{keyId}/rotate":
+    $ref: ./paths/api-keys.yaml#/apiKeyRotate
+  "/v1/api-keys/{keyId}/revoke":
+    $ref: ./paths/api-keys.yaml#/apiKeyRevoke
+  "/v1/api-keys/{keyId}/limits":
+    $ref: ./paths/api-keys.yaml#/apiKeyLimits
+  "/v1/api-keys/{keyId}/freeze":
+    $ref: ./paths/controls.yaml#/freeze
+  "/v1/api-keys/{keyId}/unfreeze":
+    $ref: ./paths/controls.yaml#/unfreeze
+  /v1/panic:
+    $ref: ./paths/controls.yaml#/panic
+  /v1/panic/clear:
+    $ref: ./paths/controls.yaml#/panic-clear
+  "/v1/whoami":
+    $ref: ./paths/api-keys.yaml#/whoami
+  /v1/competitions:
+    $ref: ./paths/competitions.yaml#/competitions
+  /v1/competitions/entries/me:
+    $ref: ./paths/competitions.yaml#/myEntries
+  /v1/competitions/{competitionId}:
+    $ref: ./paths/competitions.yaml#/competition
+  /v1/competitions/{competitionId}/entries:
+    $ref: ./paths/competitions.yaml#/entries
+  /v1/competitions/{competitionId}/entries/me:
+    $ref: ./paths/competitions.yaml#/entryMe
+  /v1/competitions/{competitionId}/standings:
+    $ref: ./paths/competitions.yaml#/standings
+  /v1/competitions/{competitionId}/standings/me:
+    $ref: ./paths/competitions.yaml#/standingMe
+  /v1/competitions/{competitionId}/snapshots:
+    $ref: ./paths/competitions.yaml#/snapshots
+  /v1/competitions/{competitionId}/snapshots/{day}/{kind}:
+    $ref: ./paths/competitions.yaml#/snapshot
+  /v1/passport/me:
+    $ref: ./paths/passport.yaml#/me
+  /v1/passport/{token}:
+    $ref: ./paths/passport.yaml#/public
+  /v1/community/profiles/mine:
+    $ref: ./paths/community.yaml#/mine
+  /v1/community/profiles/{profileId}:
+    $ref: ./paths/community.yaml#/profile
+  /v1/community/profiles/{profileId}/members:
+    $ref: ./paths/community.yaml#/members
+  /v1/community/profiles/{profileId}/codes:
+    $ref: ./paths/community.yaml#/codes
+  /v1/community/profiles/{profileId}/codes/{codeId}/disable:
+    $ref: ./paths/community.yaml#/codeDisable
+  /v1/community/profiles/{profileId}/owner-changes:
+    $ref: ./paths/community.yaml#/ownerChanges
+  /v1/community/owner-changes/{changeId}/confirm:
+    $ref: ./paths/community.yaml#/ownerChangeConfirm
+  /v1/community/owner-changes/{changeId}/cancel:
+    $ref: ./paths/community.yaml#/ownerChangeCancel
+  /v1/referrals/codes/{code}:
+    $ref: ./paths/referrals.yaml#/resolve
+  /v1/referrals/me:
+    $ref: ./paths/referrals.yaml#/me
+  /v1/referrals/me/codes:
+    $ref: ./paths/referrals.yaml#/myCodes
+  /v1/referrals/me/attribution:
+    $ref: ./paths/referrals.yaml#/attribution
+  /v1/invites/check:
+    $ref: ./paths/invites.yaml#/check
+  /v1/rewards/prizes:
+    $ref: ./paths/rewards-11.yaml#/prizes
+  /v1/rewards/prizes/{awardId}/address-consent:
+    $ref: ./paths/rewards-11.yaml#/consent
+  /v1/route:
+    $ref: ./paths/route.yaml#/list
+  /v1/route/quote:
+    $ref: ./paths/route.yaml#/quote
+  /v1/route/preview:
+    $ref: ./paths/route.yaml#/preview
+  /v1/route/benchmark:
+    $ref: ./paths/route-benchmark.yaml#/benchmark
+  /v1/route/{routeId}:
+    $ref: ./paths/route.yaml#/route
+  /v1/orders:
+    $ref: ./paths/orders.yaml#/orders
+  /v1/orders/{clientOrderId}:
+    $ref: ./paths/orders.yaml#/order
+  /v1/orders/{clientOrderId}/cancel:
+    $ref: ./paths/orders.yaml#/cancel
+  /v1/orders/{clientOrderId}/modify:
+    $ref: ./paths/orders.yaml#/modify
+  /v1/orders/{clientOrderId}/signature:
+    $ref: ./paths/orders.yaml#/signature
+  /v1/orders/{clientOrderId}/tx:
+    $ref: ./paths/orders.yaml#/tx
+  /v1/orders/batch:
+    $ref: ./paths/batch.yaml#/place
+  /v1/cancel/batch:
+    $ref: ./paths/batch.yaml#/cancel
+  /v1/cancel-all:
+    $ref: ./paths/orders.yaml#/cancelAll
+  /v1/deadman:
+    $ref: ./paths/orders.yaml#/deadman
+  /v1/accounts/{accountId}/leverage:
+    $ref: ./paths/execution.yaml#/leverage
+  /v1/accounts/{accountId}/margin-mode:
+    $ref: ./paths/execution.yaml#/margin-mode
+  /v1/accounts/{accountId}/isolated-margin:
+    $ref: ./paths/execution.yaml#/isolated-margin
+  /v1/check:
+    $ref: ./paths/orders.yaml#/check
+  /v1/positions:
+    $ref: ./paths/reads.yaml#/positions
+  /v1/balances:
+    $ref: ./paths/reads.yaml#/balances
+  /v1/fills:
+    $ref: ./paths/reads.yaml#/fills
+  /v1/fills/{fillId}/explanation:
+    $ref: ./paths/reads.yaml#/fillExplanation
+  /v1/fees/summary:
+    $ref: ./paths/reads.yaml#/feesSummary
+  /v1/equity:
+    $ref: ./paths/reads.yaml#/equity
+  /v1/monitor:
+    $ref: ./paths/monitor.yaml#/monitor
+  /v1/stream:
+    $ref: ./paths/stream.yaml#/stream
+  /v1/ask:
+    $ref: ./paths/ask.yaml#/ask
+  /v1/assistant/feedback:
+    $ref: ./paths/assistant.yaml#/feedback
+  /v1/tickets:
+    $ref: ./paths/tickets.yaml#/tickets
+  /v1/tickets/{id}:
+    $ref: ./paths/tickets.yaml#/ticket
+  /v1/tickets/{id}/confirm:
+    $ref: ./paths/tickets.yaml#/confirm
+  /v1/tickets/{id}/legs/{legNo}/device-result:
+    $ref: ./paths/tickets.yaml#/deviceResult
+  /v1/tickets/{id}/cancel:
+    $ref: ./paths/tickets.yaml#/cancel
+  /v1/notes:
+    $ref: ./paths/notes.yaml#/notes
+  /v1/notes/{id}/dismiss:
+    $ref: ./paths/notes.yaml#/dismiss
+  /v1/notices:
+    $ref: ./paths/notices.yaml#/notices
+  /v1/notices/{id}/ack:
+    $ref: ./paths/notices.yaml#/ack
+  /v1/memory:
+    $ref: ./paths/memory.yaml#/memory
+  /v1/memory/{id}:
+    $ref: ./paths/memory.yaml#/fact
+  /v1/memory/forget-all:
+    $ref: ./paths/memory.yaml#/forgetAll
+  /v1/alert-rules:
+    $ref: ./paths/alert-rules.yaml#/rules
+  /v1/alert-rules/{id}:
+    $ref: ./paths/alert-rules.yaml#/rule
+  /v1/alert-rules/{id}/activate:
+    $ref: ./paths/alert-rules.yaml#/activate
+  /v1/chat-links:
+    $ref: ./paths/chat-links.yaml#/links
+  /v1/chat-links/{id}:
+    $ref: ./paths/chat-links.yaml#/link
+  /v1/chat-links/code:
+    $ref: ./paths/chat-links.yaml#/code
+  /v1/chat-links/claim:
+    $ref: ./paths/chat-links.yaml#/claim
+  /v1/chat-links/discord/start:
+    $ref: ./paths/chat-links.yaml#/discordStart
+  /v1/chat-links/discord/callback:
+    $ref: ./paths/chat-links.yaml#/discordCallback
+  /v1/rewards:
+    $ref: ./paths/rewards.yaml#/rewards
+  /v1/rewards/statement:
+    $ref: ./paths/rewards.yaml#/statement
+  /v1/community/profiles/{profileId}/rewards:
+    $ref: ./paths/rewards.yaml#/profileRewards
+  /v1/claims:
+    $ref: ./paths/claims.yaml#/claims
+  /v1/claims/{claimId}:
+    $ref: ./paths/claims.yaml#/claim
+  /v1/tier:
+    $ref: ./paths/tier.yaml#/tier
+  /v1/public/volume/daily:
+    $ref: ./paths/public-volume.yaml#/daily
+  /v1/public/volume/fills:
+    $ref: ./paths/public-volume.yaml#/fills
+  /v1/overview/volume:
+    $ref: ./paths/overview.yaml#/volume
+  /v1/stats/execution:
+    $ref: ./paths/stats-execution.yaml#/execution
+  /v1/preferences:
+    $ref: ./paths/preferences.yaml#/preferences
+  /v1/incident-reports:
+    $ref: ./paths/incident-reports.yaml#/reports
+  /v1/security/status:
+    $ref: ./paths/security-status.yaml#/status
+  /v1/research-cards:
+    $ref: ./paths/research-cards.yaml#/cards
+  /v1/research-cards/{slugOrId}:
+    $ref: ./paths/research-cards.yaml#/card
+  /v1/research-cards/{id}/copy:
+    $ref: ./paths/research-cards.yaml#/copy
+  /v1/lab/runs:
+    $ref: ./paths/lab-runs.yaml#/runs
+  /v1/lab/runs/{id}:
+    $ref: ./paths/lab-runs.yaml#/run
+  /v1/lab/runs/{id}/cancel:
+    $ref: ./paths/lab-runs.yaml#/cancel
+  /v1/lab/runs/{id}/results:
+    $ref: ./paths/lab-runs.yaml#/results
+  /v1/lab/results/{id}/trades:
+    $ref: ./paths/lab-runs.yaml#/trades
+  /v1/lab/results/{id}/equity:
+    $ref: ./paths/lab-runs.yaml#/equity
+  /v1/lab/results/{id}/pin:
+    $ref: ./paths/lab-runs.yaml#/pin
+  /v1/lab/results/{id}/save-as-version:
+    $ref: ./paths/lab-runs.yaml#/save-version
+  /v1/lab/coverage:
+    $ref: ./paths/lab-runs.yaml#/coverage
+  /v1/lab/venues:
+    $ref: ./paths/lab-runs.yaml#/venues
+  /v1/lab/spreads:
+    $ref: ./paths/lab-spreads.yaml#/spreads
+  /v1/exports/quota:
+    $ref: ./paths/lab-exports.yaml#/quota
+  /v1/exports:
+    $ref: ./paths/lab-exports.yaml#/exports
+  /v1/exports/{id}:
+    $ref: ./paths/lab-exports.yaml#/export
+  /v1/strategies:
+    $ref: ./paths/strategies.yaml#/strategies
+  /v1/strategies/{id}:
+    $ref: ./paths/strategies.yaml#/strategy
+  /v1/strategies/{id}/versions:
+    $ref: ./paths/strategies.yaml#/versions
+  /v1/strategies/{id}/current:
+    $ref: ./paths/strategies.yaml#/current
+  /v1/strategies/{id}/kill:
+    $ref: ./paths/strategies.yaml#/kill
+  /v1/strategies/{id}/unkill:
+    $ref: ./paths/strategies.yaml#/unkill
+  /v1/strategy-versions/{id}:
+    $ref: ./paths/strategies.yaml#/strategy-version
+  /v1/strategies/{id}/runs:
+    $ref: ./paths/strategy-runs.yaml#/create
+  /v1/strategy-runs:
+    $ref: ./paths/strategy-runs.yaml#/list
+  /v1/strategy-runs/{id}:
+    $ref: ./paths/strategy-runs.yaml#/detail
+  /v1/strategy-runs/{id}/heartbeat:
+    $ref: ./paths/strategy-runs.yaml#/heartbeat
+  /v1/strategy-runs/{id}/orders:
+    $ref: ./paths/strategy-runs.yaml#/orders
+  /v1/strategy-runs/{id}/events:
+    $ref: ./paths/strategy-runs.yaml#/events
+  /v1/strategy-runs/{id}/pause:
+    $ref: ./paths/strategy-runs.yaml#/pause
+  /v1/strategy-runs/{id}/resume:
+    $ref: ./paths/strategy-runs.yaml#/resume
+  /v1/strategy-runs/{id}/stop:
+    $ref: ./paths/strategy-runs.yaml#/stop
+  /v1/strategy-runs/{id}/equity:
+    $ref: ./paths/strategy-runs.yaml#/equity
+  /v1/strategy-runs/{id}/close-ticket:
+    $ref: ./paths/strategy-runs.yaml#/closeTicket
+  /v1/strategy-specs/validate:
+    $ref: ./paths/strategies.yaml#/validate
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-sid
+      description: >-
+        The session cookie of the web app, scoped to its issuing origin. Requests that change data from a browser
+        also need an allowed Origin.
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: >-
+        A signed request. Send X-Api-Key with the key text, X-Api-Timestamp, X-Api-Nonce and X-Api-Signature, the
+        Ed25519 signature of the seven-line string of the signing rules. A `read` key reaches read operations; a `trade`
+        key reaches both.
+    service:
+      type: http
+      scheme: Service
+      description: >-
+        The chat service credential, `Authorization: Service <token>`, with X-Acting-For and X-Atr-Chat-Link. It
+        reaches only the operations marked `x-service`. Not for integrations.
+  schemas:
+    ErrorCode:
+      $ref: ./components/envelope.yaml#/ErrorCode
+    Ok:
+      $ref: ./components/envelope.yaml#/Ok
+    OkList:
+      $ref: ./components/envelope.yaml#/OkList
+    Refusal:
+      $ref: ./components/envelope.yaml#/Refusal
+    DecStr:
+      $ref: ./components/primitives.yaml#/DecStr
+    Instant:
+      $ref: ./components/primitives.yaml#/Instant
+    Uuid:
+      $ref: ./components/primitives.yaml#/Uuid
+    Hex:
+      $ref: ./components/primitives.yaml#/Hex
+    ClientOrderId:
+      $ref: ./components/primitives.yaml#/ClientOrderId
+    AssetId:
+      $ref: ./components/primitives.yaml#/AssetId
+    MoneyJson:
+      $ref: ./components/primitives.yaml#/MoneyJson
+    VenueId:
+      $ref: ./components/primitives.yaml#/VenueId
+    VenueKind:
+      $ref: ./components/primitives.yaml#/VenueKind
+    ChainFamily:
+      $ref: ./components/primitives.yaml#/ChainFamily
+    Region:
+      $ref: ./components/primitives.yaml#/Region
+    InstrumentClass:
+      $ref: ./components/primitives.yaml#/InstrumentClass
+    Mode:
+      $ref: ./components/primitives.yaml#/Mode
+    KeyPlace:
+      $ref: ./components/primitives.yaml#/KeyPlace
+    VenueState:
+      $ref: ./components/primitives.yaml#/VenueState
+    GateStage:
+      $ref: ./components/primitives.yaml#/GateStage
+    CustodyClass:
+      $ref: ./components/primitives.yaml#/CustodyClass
+    CredentialHolder:
+      $ref: ./components/primitives.yaml#/CredentialHolder
+    CredentialKind:
+      $ref: ./components/primitives.yaml#/CredentialKind
+    AccountKind:
+      $ref: ./components/primitives.yaml#/AccountKind
+    OrderState:
+      $ref: ./components/primitives.yaml#/OrderState
+    ShareState:
+      $ref: ./components/primitives.yaml#/ShareState
+    PayoutState:
+      $ref: ./components/primitives.yaml#/PayoutState
+    InstrumentId:
+      $ref: ./components/venues.yaml#/InstrumentId
+    VenueUnit:
+      $ref: ./components/venues.yaml#/VenueUnit
+    VenueInfo:
+      $ref: ./components/venues.yaml#/VenueInfo
+    InstrumentInfo:
+      $ref: ./components/venues.yaml#/InstrumentInfo
+    BudgetRule:
+      $ref: ./components/venues.yaml#/BudgetRule
+    VenueBudget:
+      $ref: ./components/venues.yaml#/VenueBudget
+    AttestationInfo:
+      $ref: ./components/venues.yaml#/AttestationInfo
+    AttestationChallengeRequest:
+      $ref: ./components/venues.yaml#/AttestationChallengeRequest
+    AttestationChallenge:
+      $ref: ./components/venues.yaml#/AttestationChallenge
+    UnixMs:
+      $ref: ./components/markets.yaml#/UnixMs
+    CandleTimeframe:
+      $ref: ./components/markets.yaml#/CandleTimeframe
+    Candle:
+      $ref: ./components/markets.yaml#/Candle
+    BookLevel:
+      $ref: ./components/markets.yaml#/BookLevel
+    BookSnapshotJson:
+      $ref: ./components/markets.yaml#/BookSnapshotJson
+    TradePrint:
+      $ref: ./components/markets.yaml#/TradePrint
+    FundingPoint:
+      $ref: ./components/markets.yaml#/FundingPoint
+    Age:
+      $ref: ./components/markets.yaml#/Age
+    FeeSplit:
+      $ref: ./components/markets.yaml#/FeeSplit
+    MarketSnapshotRow:
+      $ref: ./components/markets.yaml#/MarketSnapshotRow
+    MarketSnapshot:
+      $ref: ./components/markets.yaml#/MarketSnapshot
+    FundingCompareVenue:
+      $ref: ./components/markets.yaml#/FundingCompareVenue
+    FundingPair:
+      $ref: ./components/markets.yaml#/FundingPair
+    FundingCompare:
+      $ref: ./components/markets.yaml#/FundingCompare
+    PriceGapRow:
+      $ref: ./components/markets.yaml#/PriceGapRow
+    PriceGaps:
+      $ref: ./components/markets.yaml#/PriceGaps
+    CoverageRow:
+      $ref: ./components/markets.yaml#/CoverageRow
+    Coverage:
+      $ref: ./components/markets.yaml#/Coverage
+    HelpEntry:
+      $ref: ./components/markets.yaml#/HelpEntry
+    ProductHelp:
+      $ref: ./components/markets.yaml#/ProductHelp
+    FeeApproval:
+      $ref: ./components/fees.yaml#/FeeApproval
+    FeeRate:
+      $ref: ./components/fees.yaml#/FeeRate
+    FeeSchedule:
+      $ref: ./components/fees.yaml#/FeeSchedule
+    FeeQuoteRequest:
+      $ref: ./components/fees.yaml#/FeeQuoteRequest
+    FeeQuote:
+      $ref: ./components/fees.yaml#/FeeQuote
+    ConnectionState:
+      $ref: ./components/connections.yaml#/ConnectionState
+    ConnectionKey:
+      $ref: ./components/connections.yaml#/ConnectionKey
+    Connection:
+      $ref: ./components/connections.yaml#/Connection
+    ConnectKind:
+      $ref: ./components/connections.yaml#/ConnectKind
+    ConnectOfferRequest:
+      $ref: ./components/connections.yaml#/ConnectOfferRequest
+    ConnectStep:
+      $ref: ./components/connections.yaml#/ConnectStep
+    PmMovePrepare:
+      $ref: ./components/connections.yaml#/PmMovePrepare
+    PmMoveResult:
+      $ref: ./components/connections.yaml#/PmMoveResult
+    ConnectOffer:
+      $ref: ./components/connections.yaml#/ConnectOffer
+    ConnectComplete:
+      $ref: ./components/connections.yaml#/ConnectComplete
+    ConnectResult:
+      $ref: ./components/connections.yaml#/ConnectResult
+    SealingKey:
+      $ref: ./components/connections.yaml#/SealingKey
+    RenewRequest:
+      $ref: ./components/connections.yaml#/RenewRequest
+    DisconnectRequest:
+      $ref: ./components/connections.yaml#/DisconnectRequest
+    DisconnectResult:
+      $ref: ./components/connections.yaml#/DisconnectResult
+    LinkScheme:
+      $ref: ./components/accounts.yaml#/LinkScheme
+    VenueAccountInfo:
+      $ref: ./components/accounts.yaml#/VenueAccountInfo
+    AccountLinkChallengeRequest:
+      $ref: ./components/accounts.yaml#/AccountLinkChallengeRequest
+    AccountLinkChallenge:
+      $ref: ./components/accounts.yaml#/AccountLinkChallenge
+    AccountLinkRequest:
+      $ref: ./components/accounts.yaml#/AccountLinkRequest
+    LimitScope:
+      $ref: ./components/limits.yaml#/LimitScope
+    LimitSet:
+      $ref: ./components/limits.yaml#/LimitSet
+    LimitUpdate:
+      $ref: ./components/limits.yaml#/LimitUpdate
+    VaultKind:
+      $ref: ./components/vaults.yaml#/VaultKind
+    VaultClass:
+      $ref: ./components/vaults.yaml#/VaultClass
+    VaultShelf:
+      $ref: ./components/vaults.yaml#/VaultShelf
+    VaultStatus:
+      $ref: ./components/vaults.yaml#/VaultStatus
+    VaultTradingState:
+      $ref: ./components/vaults.yaml#/VaultTradingState
+    VaultCloseReason:
+      $ref: ./components/vaults.yaml#/VaultCloseReason
+    PassportMark:
+      $ref: ./components/vaults.yaml#/PassportMark
+    SeatImplementation:
+      $ref: ./components/vaults.yaml#/SeatImplementation
+    AccountSeatRole:
+      $ref: ./components/vaults.yaml#/AccountSeatRole
+    VaultAccountStatus:
+      $ref: ./components/vaults.yaml#/VaultAccountStatus
+    RedemptionStatus:
+      $ref: ./components/vaults.yaml#/RedemptionStatus
+    VaultRedemptionPlan:
+      $ref: ./components/vaults.yaml#/VaultRedemptionPlan
+    SeatActionKind:
+      $ref: ./components/vaults.yaml#/SeatActionKind
+    SeatRequestStatus:
+      $ref: ./components/vaults.yaml#/SeatRequestStatus
+    VaultCapability:
+      $ref: ./components/vaults.yaml#/VaultCapability
+    MatrixVerdict:
+      $ref: ./components/vaults.yaml#/MatrixVerdict
+    EvidenceKind:
+      $ref: ./components/vaults.yaml#/EvidenceKind
+    BreachKind:
+      $ref: ./components/vaults.yaml#/BreachKind
+    GuardianActionKind:
+      $ref: ./components/vaults.yaml#/GuardianActionKind
+    GuardianTriggerKind:
+      $ref: ./components/vaults.yaml#/GuardianTriggerKind
+    MandateDoc:
+      $ref: ./components/vaults.yaml#/MandateDoc
+    VaultSummary:
+      $ref: ./components/vaults.yaml#/VaultSummary
+    VaultTerms:
+      $ref: ./components/vaults.yaml#/VaultTerms
+    VaultDetail:
+      $ref: ./components/vaults.yaml#/VaultDetail
+    IndexPoint:
+      $ref: ./components/vaults.yaml#/IndexPoint
+    VaultLogEntry:
+      $ref: ./components/vaults.yaml#/VaultLogEntry
+    VaultExposure:
+      $ref: ./components/vaults.yaml#/VaultExposure
+    MyVaultAccount:
+      $ref: ./components/vaults.yaml#/MyVaultAccount
+    SeatRequestJson:
+      $ref: ./components/vaults.yaml#/SeatRequestJson
+    MatrixCellJson:
+      $ref: ./components/vaults.yaml#/MatrixCellJson
+    MatrixRowJson:
+      $ref: ./components/vaults.yaml#/MatrixRowJson
+    VaultRecord:
+      $ref: ./components/vaults.yaml#/VaultRecord
+    VaultMatrix:
+      $ref: ./components/vaults.yaml#/VaultMatrix
+    MyVaults:
+      $ref: ./components/vaults.yaml#/MyVaults
+    TriggerJson:
+      $ref: ./components/orders.yaml#/TriggerJson
+    RelaySigned:
+      $ref: ./components/orders.yaml#/RelaySigned
+    RoutedOrder:
+      $ref: ./components/route.yaml#/RoutedOrder
+    RouteRequestBody:
+      $ref: ./components/route.yaml#/RouteRequestBody
+    RouteQuoteRequest:
+      $ref: ./components/route.yaml#/RouteQuoteRequest
+    RouteState:
+      $ref: ./components/route.yaml#/RouteState
+    RouteDropReason:
+      $ref: ./components/route.yaml#/RouteDropReason
+    RoutePlanLeg:
+      $ref: ./components/route.yaml#/RoutePlanLeg
+    RouteVenueFeeEvidence:
+      $ref: ./components/route.yaml#/RouteVenueFeeEvidence
+    RouteLatency:
+      $ref: ./components/route.yaml#/RouteLatency
+    RouteCandidateJson:
+      $ref: ./components/route.yaml#/RouteCandidateJson
+    RoutePlan:
+      $ref: ./components/route.yaml#/RoutePlan
+    SplitDecision:
+      $ref: ./components/route.yaml#/SplitDecision
+    RouteQuote:
+      $ref: ./components/route.yaml#/RouteQuote
+    RoutePreviewVenueId:
+      $ref: ./components/route.yaml#/RoutePreviewVenueId
+    RoutePreviewRequest:
+      $ref: ./components/route.yaml#/RoutePreviewRequest
+    RoutePreviewSkipReason:
+      $ref: ./components/route.yaml#/RoutePreviewSkipReason
+    RoutePreviewLevel:
+      $ref: ./components/route.yaml#/RoutePreviewLevel
+    RoutePreviewBook:
+      $ref: ./components/route.yaml#/RoutePreviewBook
+    RoutePreviewVenueFee:
+      $ref: ./components/route.yaml#/RoutePreviewVenueFee
+    RoutePreviewSingle:
+      $ref: ./components/route.yaml#/RoutePreviewSingle
+    RoutePreviewLeg:
+      $ref: ./components/route.yaml#/RoutePreviewLeg
+    RoutePreviewFunding:
+      $ref: ./components/route.yaml#/RoutePreviewFunding
+    RoutePreviewVenue:
+      $ref: ./components/route.yaml#/RoutePreviewVenue
+    RoutePreview:
+      $ref: ./components/route.yaml#/RoutePreview
+    RouteLeg:
+      $ref: ./components/route.yaml#/RouteLeg
+    RouteReport:
+      $ref: ./components/route.yaml#/RouteReport
+    Route:
+      $ref: ./components/route.yaml#/Route
+    PlaceOrderIntent:
+      $ref: ./components/orders.yaml#/PlaceOrderIntent
+    PlaceOrderRelay:
+      $ref: ./components/orders.yaml#/PlaceOrderRelay
+    PlaceOrder:
+      $ref: ./components/orders.yaml#/PlaceOrder
+    CancelOrderRequest:
+      $ref: ./components/orders.yaml#/CancelOrderRequest
+    ModifyOrderRequest:
+      $ref: ./components/orders.yaml#/ModifyOrderRequest
+    OrderSignatureRequest:
+      $ref: ./components/orders.yaml#/OrderSignatureRequest
+    UserSignedPayload:
+      $ref: ./components/orders.yaml#/UserSignedPayload
+    OrderTxRequest:
+      $ref: ./components/orders.yaml#/OrderTxRequest
+    CancelAllRequest:
+      $ref: ./components/orders.yaml#/CancelAllRequest
+    DeadManRequest:
+      $ref: ./components/orders.yaml#/DeadManRequest
+    MarginMode:
+      $ref: ./components/execution.yaml#/MarginMode
+    SetLeverageRequest:
+      $ref: ./components/execution.yaml#/SetLeverageRequest
+    SetMarginModeRequest:
+      $ref: ./components/execution.yaml#/SetMarginModeRequest
+    AdjustIsolatedMarginRequest:
+      $ref: ./components/execution.yaml#/AdjustIsolatedMarginRequest
+    LeverageResult:
+      $ref: ./components/execution.yaml#/LeverageResult
+    MarginResult:
+      $ref: ./components/execution.yaml#/MarginResult
+    DryRunResult:
+      $ref: ./components/orders.yaml#/DryRunResult
+    BatchPlaceRequest:
+      $ref: ./components/batch.yaml#/BatchPlaceRequest
+    BatchCancelRequest:
+      $ref: ./components/batch.yaml#/BatchCancelRequest
+    BatchItemResult:
+      $ref: ./components/batch.yaml#/BatchItemResult
+    BatchResult:
+      $ref: ./components/batch.yaml#/BatchResult
+    PanicRequest:
+      $ref: ./components/controls.yaml#/PanicRequest
+    PanicResult:
+      $ref: ./components/controls.yaml#/PanicResult
+    PanicCleared:
+      $ref: ./components/controls.yaml#/PanicCleared
+    UserAction:
+      $ref: ./components/orders.yaml#/UserAction
+    FinalReason:
+      $ref: ./components/orders.yaml#/FinalReason
+    Order:
+      $ref: ./components/orders.yaml#/Order
+    DeadMan:
+      $ref: ./components/orders.yaml#/DeadMan
+    CancelAllResult:
+      $ref: ./components/orders.yaml#/CancelAllResult
+    PreSignCheck:
+      $ref: ./components/orders.yaml#/PreSignCheck
+    UtcDay:
+      $ref: ./components/reads.yaml#/UtcDay
+    ReadFailure:
+      $ref: ./components/reads.yaml#/ReadFailure
+    PositionJson:
+      $ref: ./components/reads.yaml#/PositionJson
+    BalanceJson:
+      $ref: ./components/reads.yaml#/BalanceJson
+    PositionsRead:
+      $ref: ./components/reads.yaml#/PositionsRead
+    BalancesRead:
+      $ref: ./components/reads.yaml#/BalancesRead
+    EquityRead:
+      $ref: ./components/reads.yaml#/EquityRead
+    AccountPositions:
+      $ref: ./components/reads.yaml#/AccountPositions
+    AccountBalances:
+      $ref: ./components/reads.yaml#/AccountBalances
+    AccountEquity:
+      $ref: ./components/reads.yaml#/AccountEquity
+    Fill:
+      $ref: ./components/reads.yaml#/Fill
+    EquityView:
+      $ref: ./components/reads.yaml#/EquityView
+    FillExplanation:
+      $ref: ./components/reads.yaml#/FillExplanation
+    FeesSummary:
+      $ref: ./components/reads.yaml#/FeesSummary
+    MonitorPoint:
+      $ref: ./components/reads.yaml#/MonitorPoint
+    MonitorView:
+      $ref: ./components/reads.yaml#/MonitorView
+    RewardBasis:
+      $ref: ./components/rewards.yaml#/RewardBasis
+    ShareKind:
+      $ref: ./components/rewards.yaml#/ShareKind
+    ClaimState:
+      $ref: ./components/rewards.yaml#/ClaimState
+    RewardBalances:
+      $ref: ./components/rewards.yaml#/RewardBalances
+    ReferralBalances:
+      $ref: ./components/rewards.yaml#/ReferralBalances
+    Claim:
+      $ref: ./components/rewards.yaml#/Claim
+    Rewards:
+      $ref: ./components/rewards.yaml#/Rewards
+    StatementLine:
+      $ref: ./components/rewards.yaml#/StatementLine
+    TierView:
+      $ref: ./components/rewards.yaml#/TierView
+    ProfileRewardsView:
+      $ref: ./components/rewards.yaml#/ProfileRewardsView
+    PublicVolumeDay:
+      $ref: ./components/rewards.yaml#/PublicVolumeDay
+    PublicFill:
+      $ref: ./components/rewards.yaml#/PublicFill
+    CreateClaimRequest:
+      $ref: ./components/rewards.yaml#/CreateClaimRequest
+    Channel:
+      $ref: ./components/stream.yaml#/Channel
+    StreamClientFrame:
+      $ref: ./components/stream.yaml#/StreamClientFrame
+    StreamServerFrame:
+      $ref: ./components/stream.yaml#/StreamServerFrame
+    StrategyKind:
+      $ref: ./components/lab.yaml#/StrategyKind
+    StrategyOrigin:
+      $ref: ./components/lab.yaml#/StrategyOrigin
+    StrategyStatus:
+      $ref: ./components/lab.yaml#/StrategyStatus
+    StrategySpec:
+      $ref: ./components/lab.yaml#/StrategySpec
+    SpecIssue:
+      $ref: ./components/lab.yaml#/SpecIssue
+    StrategyHeadline:
+      $ref: ./components/lab.yaml#/StrategyHeadline
+    StrategyView:
+      $ref: ./components/lab.yaml#/StrategyView
+    VersionView:
+      $ref: ./components/lab.yaml#/VersionView
+    RunStats:
+      $ref: ./components/lab.yaml#/RunStats
+    RunView:
+      $ref: ./components/lab.yaml#/RunView
+    ResearchCardView:
+      $ref: ./components/research-cards.yaml#/ResearchCardView
+    LabRunParams:
+      $ref: ./components/lab.yaml#/LabRunParams
+    LabRunPlan:
+      $ref: ./components/lab.yaml#/LabRunPlan
+    LabRunCreated:
+      $ref: ./components/lab.yaml#/LabRunCreated
+    LabResultSummary:
+      $ref: ./components/lab.yaml#/LabResultSummary
+    LabTradeView:
+      $ref: ./components/lab.yaml#/LabTradeView
+    LabEquityView:
+      $ref: ./components/lab.yaml#/LabEquityView
+    LabPinView:
+      $ref: ./components/lab.yaml#/LabPinView
+    LabSaveVersionRequest:
+      $ref: ./components/lab.yaml#/LabSaveVersionRequest
+    LabVenueView:
+      $ref: ./components/lab.yaml#/LabVenueView
+    LabCoverageView:
+      $ref: ./components/lab.yaml#/LabCoverageView
+    LabSpreadLeg:
+      $ref: ./components/lab-spreads.yaml#/LabSpreadLeg
+    LabSpread:
+      $ref: ./components/lab-spreads.yaml#/LabSpread
+    LabSpreadAnswer:
+      $ref: ./components/lab-spreads.yaml#/LabSpreadAnswer
+    ExportBytes:
+      $ref: ./components/lab-exports.yaml#/ExportBytes
+    ExportDataset:
+      $ref: ./components/lab-exports.yaml#/ExportDataset
+    ExportStatus:
+      $ref: ./components/lab-exports.yaml#/ExportStatus
+    ExportJobView:
+      $ref: ./components/lab-exports.yaml#/ExportJobView
+    ExportQuotaView:
+      $ref: ./components/lab-exports.yaml#/ExportQuotaView
+    ExportStart:
+      $ref: ./components/lab-exports.yaml#/ExportStart
+    ExportCreated:
+      $ref: ./components/lab-exports.yaml#/ExportCreated
+    LabRunView:
+      $ref: ./components/lab.yaml#/LabRunView
+    ReplayClientFrame:
+      $ref: ./components/lab-replay.yaml#/ReplayClientFrame
+    ReplayServerFrame:
+      $ref: ./components/lab-replay.yaml#/ReplayServerFrame
+    FollowView:
+      $ref: ./components/lab.yaml#/FollowView
+    StrategyDetail:
+      $ref: ./components/lab.yaml#/StrategyDetail
+    CoverageLine:
+      $ref: ./components/lab.yaml#/CoverageLine
+    SpecValidation:
+      $ref: ./components/lab.yaml#/SpecValidation
+    CreateStrategyRequest:
+      $ref: ./components/lab.yaml#/CreateStrategyRequest
+    UpdateStrategyRequest:
+      $ref: ./components/lab.yaml#/UpdateStrategyRequest
+    CreateVersionRequest:
+      $ref: ./components/lab.yaml#/CreateVersionRequest
+    SetCurrentRequest:
+      $ref: ./components/lab.yaml#/SetCurrentRequest
+    KillRequest:
+      $ref: ./components/lab.yaml#/KillRequest
+    ValidateSpecRequest:
+      $ref: ./components/lab.yaml#/ValidateSpecRequest
+    EmptyRequest:
+      $ref: ./components/lab.yaml#/EmptyRequest
+    StrategyCreated:
+      $ref: ./components/lab.yaml#/StrategyCreated
+    VersionCreated:
+      $ref: ./components/lab.yaml#/VersionCreated
+    KillResult:
+      $ref: ./components/lab.yaml#/KillResult
+    RunDetail:
+      $ref: ./components/lab.yaml#/RunDetail
+    RunPauseReason:
+      $ref: ./components/lab.yaml#/RunPauseReason
+    LabScalarDetails:
+      $ref: ./components/lab.yaml#/LabScalarDetails
+    LabCaveatCode:
+      $ref: ./components/lab.yaml#/LabCaveatCode
+    SpreadRow:
+      $ref: ./components/lab.yaml#/SpreadRow
+  headers:
+    X-Request-Id:
+      $ref: ./components/headers.yaml#/X-Request-Id
+    RateLimit-Limit:
+      $ref: ./components/headers.yaml#/RateLimit-Limit
+    RateLimit-Remaining:
+      $ref: ./components/headers.yaml#/RateLimit-Remaining
+    RateLimit-Reset:
+      $ref: ./components/headers.yaml#/RateLimit-Reset
+    Retry-After:
+      $ref: ./components/headers.yaml#/Retry-After
+    Deprecation:
+      $ref: ./components/headers.yaml#/Deprecation
+    Sunset:
+      $ref: ./components/headers.yaml#/Sunset
+  parameters:
+    IdempotencyKey:
+      $ref: ./components/headers.yaml#/IdempotencyKey
+    SecondFactor:
+      $ref: ./components/headers.yaml#/SecondFactor
+    XApiKey:
+      $ref: ./components/headers.yaml#/XApiKey
+    XApiTimestamp:
+      $ref: ./components/headers.yaml#/XApiTimestamp
+    XApiNonce:
+      $ref: ./components/headers.yaml#/XApiNonce
+    XApiSignature:
+      $ref: ./components/headers.yaml#/XApiSignature
+    Cursor:
+      $ref: ./components/parameters.yaml#/Cursor
+    Limit:
+      $ref: ./components/parameters.yaml#/Limit
+    From:
+      $ref: ./components/parameters.yaml#/From
+    To:
+      $ref: ./components/parameters.yaml#/To
+    AccountId:
+      $ref: ./components/parameters.yaml#/AccountId
+    Venue:
+      $ref: ./components/parameters.yaml#/Venue

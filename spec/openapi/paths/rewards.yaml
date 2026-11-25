@@ -1,0 +1,219 @@
+# Rewards, statement and profile rewards (03 §7.6; shapes 07 §7.1). Sources only: no handlers.
+rewards:
+  get:
+    operationId: getRewards
+    summary: "Read rewards: fees paid and referral by share state, and what is claimable."
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: from
+        in: query
+        required: false
+        description: Start of the period.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: to
+        in: query
+        required: false
+        description: End of the period.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+    responses:
+      "200":
+        description: The rewards summary.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/rewards.yaml#/Rewards
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                userId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d01
+                referral:
+                  - asset: usdc
+                    pending: "1"
+                    claimable: "12.5"
+                    underReview: "0"
+                    claimed: "0"
+                    paid: "0"
+                    profileId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d15
+                prizes: null
+                claimableUsdc: "12.5"
+                minClaimUsdc: "5"
+                waiting:
+                  - venue: hyperliquid
+                    day: 2026-11-07
+                    state: open
+                    amount:
+                      amount: "1"
+                      asset: usdc
+                    reason: day_open
+                openClaim: null
+                claimsHalted: false
+statement:
+  get:
+    operationId: getRewardsStatement
+    summary: List the fee events behind the rewards.
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+      - cursor_invalid
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: from
+        in: query
+        required: true
+        description: Start of the period.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: to
+        in: query
+        required: true
+        description: End of the period.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of statement lines.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/rewards.yaml#/StatementLine
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - feeEventId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d20
+                  venue: hyperliquid
+                  venueFillId: "9981"
+                  instrument: hyperliquid:BTC
+                  side: buy
+                  notional:
+                    amount: "650"
+                    asset: usdc
+                  feeAsked:
+                    amount: "0.0325"
+                    asset: usdc
+                  feeReceived:
+                    amount: "0.0325"
+                    asset: usdc
+                  rewardBasis: earning
+                  shares:
+                    - kind: referral
+                      amount:
+                        amount: "0.0065"
+                        asset: usdc
+                      status: claimable
+                  filledAt: 2026-11-07T09:30:00.000Z
+              nextCursor: null
+profileRewards:
+  get:
+    operationId: getProfileRewards
+    summary: Read what a community profile has earned its owner.
+    tags:
+      - Community
+    x-owner: "07"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - forbidden
+      - not_found
+    security:
+      - session: []
+    parameters:
+      - name: profileId
+        in: path
+        required: true
+        description: The profile.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - name: from
+        in: query
+        required: true
+        description: First day.
+        schema:
+          $ref: ../components/reads.yaml#/UtcDay
+      - name: to
+        in: query
+        required: true
+        description: Last day.
+        schema:
+          $ref: ../components/reads.yaml#/UtcDay
+    responses:
+      "200":
+        description: The owner's view.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/rewards.yaml#/ProfileRewardsView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                profileId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d15
+                members: 3
+                feePayingVolumeUsd: "1200"
+                accrued:
+                  - asset: usdc
+                    pending: "1"
+                    claimable: "12.5"
+                    underReview: "0"
+                    claimed: "0"
+                    paid: "0"
+                byDay:
+                  - day: 2026-11-07
+                    feePayingVolumeUsd: "1200"
+                    accruedUsdc: "1.2"

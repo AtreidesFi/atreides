@@ -1,0 +1,39 @@
+# Freeze, unfreeze and panic (03 §7.5a, API-066, API-067; 05 §10b.7). Requests are closed (01 §5.12 rule 1).
+PanicRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    cancelProtective:
+      description: Also cancel the reduce-only orders (protective stops and take-profits). Off by default.
+      type: boolean
+PanicResult:
+  type: object
+  additionalProperties: false
+  required:
+    - cancelledOrders
+    - cancelledParents
+    - blockedUntilClear
+    - notCancelled
+  properties:
+    cancelledOrders:
+      description: Resting orders the gateways cancelled.
+      type: integer
+      minimum: 0
+    cancelledParents:
+      description: Working routed, scheduled or paired parents cancelled. Zero until those parents exist.
+      type: integer
+      minimum: 0
+    blockedUntilClear:
+      const: true
+    notCancelled:
+      description: Orders still resting because a gateway did not confirm the cancel. The block on opening holds anyway.
+      type: integer
+      minimum: 0
+PanicCleared:
+  type: object
+  additionalProperties: false
+  required:
+    - cleared
+  properties:
+    cleared:
+      const: true

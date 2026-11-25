@@ -1,0 +1,221 @@
+# Alert rules delivered through the chat links (10 §12, §17.4).
+rules:
+  get:
+    operationId: listAlertRules
+    summary: List the alert rules.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - rules
+                  properties:
+                    rules:
+                      type: array
+                      items:
+                        $ref: ../components/assistant.yaml#/AlertRuleView
+            example:
+              ok: true
+              data:
+                rules:
+                  - &a1
+                    id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                    status: active
+                    params: &a3
+                      trigger: price_level
+                      instrument: BTC-PERP
+                      above: "70000"
+                    channels: &a4
+                      - telegram
+                    label: null
+                    text: Tell me when BTC-PERP on Hyperliquid trades above 70,000
+                    cooldownS: 900
+                    mutedUntil: null
+                    lastFiredAt: null
+                    available: true
+                    createdAt: 2026-11-07T09:30:00.000Z
+  post:
+    operationId: createAlertRule
+    summary: Create an alert rule and turn it on.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - alert_rule_unavailable
+      - alert_rules_limit
+      - invalid_request
+      - chat_not_linked
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/CreateAlertRuleRequest
+          example:
+            params:
+              trigger: price_level
+              instrument: BTC-PERP
+              above: "70000"
+            channels:
+              - telegram
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/AlertRuleView
+                - &a2
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: *a1
+rule:
+  parameters:
+    - &a5
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  patch:
+    operationId: updateAlertRule
+    summary: Mute, change or delete an alert rule.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - invalid_request
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/UpdateAlertRuleRequest
+          example:
+            status: muted
+            muteHours: 24
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/AlertRuleView
+                - *a2
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: muted
+                params: *a3
+                channels: *a4
+                label: null
+                text: Tell me when BTC-PERP on Hyperliquid trades above 70,000
+                cooldownS: 900
+                mutedUntil: 2026-11-07T09:35:00.000Z
+                lastFiredAt: null
+                available: true
+                createdAt: 2026-11-07T09:30:00.000Z
+activate:
+  parameters:
+    - *a5
+  post:
+    operationId: activateAlertRule
+    summary: Turn on a proposed alert rule.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - state_conflict
+      - alert_rule_unavailable
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/AlertRuleView
+                - *a2
+            example:
+              ok: true
+              data: *a1

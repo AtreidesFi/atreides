@@ -1,0 +1,579 @@
+# Lab runs, results and read-only venue data (09 §6.2).
+runs:
+  get:
+    operationId: "listLabRuns"
+    summary: "List owned lab runs."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "read"
+    x-idempotency: "none"
+    x-refusals: []
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters:
+      [
+        {
+          "name": "strategyId",
+          "in": "query",
+          "required": false,
+          "schema": { "$ref": "../components/primitives.yaml#/Uuid" },
+        },
+        {
+          "name": "status",
+          "in": "query",
+          "required": false,
+          "schema": { "type": "string", "enum": ["queued", "running", "done", "failed", "cancelled", "refused"] },
+        },
+        { "$ref": "../components/parameters.yaml#/Cursor" },
+        { "$ref": "../components/parameters.yaml#/Limit" },
+      ]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["ok", "data", "nextCursor"]
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: "array"
+                  items:
+                    $ref: "../components/lab.yaml#/LabRunView"
+                nextCursor:
+                  type: ["string", "null"]
+            example:
+              ok: true
+              data: []
+              nextCursor: null
+  post:
+    operationId: "createLabRun"
+    summary: "Admit a backtest."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "heavy"
+    x-idempotency: "header"
+    x-refusals:
+      [
+        "lab_data_gap",
+        "lab_venue_not_ready",
+        "lab_venue_not_licensed",
+        "lab_fee_model_missing",
+        "lab_too_many_runs",
+        "lab_run_too_large",
+        "lab_spec_invalid",
+        "feature_unavailable",
+        "idempotency_conflict",
+      ]
+    description: "Lab writes accept a session or an ed25519 key with read scope."
+    x-flag: "lab.enabled"
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters: [{ "$ref": "../components/headers.yaml#/IdempotencyKey" }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/lab.yaml#/LabRunParams"
+          example:
+            kind: "backtest"
+            strategyVersionId: "01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81"
+            from: "2026-11-07T09:30:00.000Z"
+            to: "2026-11-08T09:30:00.000Z"
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                [
+                  {
+                    "type": "object",
+                    "required": ["ok", "data"],
+                    "properties":
+                      { "ok": { "const": true }, "data": { "$ref": "../components/lab.yaml#/LabRunCreated" } },
+                  },
+                  { "$ref": "../components/envelope.yaml#/Refusal" },
+                ]
+            example:
+              ok: true
+              data:
+                run:
+                  id: "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80"
+                  kind: "backtest"
+                  status: "queued"
+                  strategyId: null
+                  strategyNumber: null
+                  versionId: "01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81"
+                  version: 1
+                  params: null
+                  plan: null
+                  progress:
+                    permille: 0
+                    stage: "queued"
+                    etaAt: null
+                  queuePosition: 0
+                  cachedFromRunId: null
+                  bestResultId: null
+                  error: null
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                  startedAt: null
+                  finishedAt: null
+                plan:
+                  instruments: ["hyperliquid:BTC"]
+                  variants: 1
+                  bars: 1440
+                  window:
+                    from: 1794043800000
+                    to: 1794130200000
+                    trainEnd: 1794104280000
+                  trimmedFrom: null
+                  holes: []
+                  estimateMs: 2000
+                cachedFrom: null
+run:
+  parameters:
+    [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "../components/primitives.yaml#/Uuid" } }]
+  get:
+    operationId: "getLabRun"
+    summary: "Read one owned lab run."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "read"
+    x-idempotency: "none"
+    x-refusals: []
+    security: [{ "session": [] }, { "apiKey": [] }]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["ok", "data"]
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: "../components/lab.yaml#/LabRunView"
+            example:
+              ok: true
+              data:
+                id: "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80"
+                kind: "backtest"
+                status: "queued"
+                strategyId: null
+                strategyNumber: null
+                versionId: "01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81"
+                version: 1
+                params: null
+                plan: null
+                progress:
+                  permille: 0
+                  stage: "queued"
+                  etaAt: null
+                queuePosition: 0
+                cachedFromRunId: null
+                bestResultId: null
+                error: null
+                createdAt: "2026-11-07T09:30:00.000Z"
+                startedAt: null
+                finishedAt: null
+cancel:
+  parameters:
+    [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "../components/primitives.yaml#/Uuid" } }]
+  post:
+    operationId: "cancelLabRun"
+    summary: "Cancel an owned lab run."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "connect"
+    x-idempotency: "header"
+    x-refusals: ["lab_run_finished", "feature_unavailable", "idempotency_conflict"]
+    description: "Lab writes accept a session or an ed25519 key with read scope."
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters: [{ "$ref": "../components/headers.yaml#/IdempotencyKey" }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/lab.yaml#/EmptyRequest"
+          example: {}
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                [
+                  {
+                    "type": "object",
+                    "required": ["ok", "data"],
+                    "properties": { "ok": { "const": true }, "data": { "$ref": "../components/lab.yaml#/LabRunView" } },
+                  },
+                  { "$ref": "../components/envelope.yaml#/Refusal" },
+                ]
+            example:
+              ok: true
+              data:
+                id: "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80"
+                kind: "backtest"
+                status: "cancelled"
+                strategyId: null
+                strategyNumber: null
+                versionId: "01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81"
+                version: 1
+                params: null
+                plan: null
+                progress:
+                  permille: 0
+                  stage: "queued"
+                  etaAt: null
+                queuePosition: null
+                cachedFromRunId: null
+                bestResultId: null
+                error: null
+                createdAt: "2026-11-07T09:30:00.000Z"
+                startedAt: null
+                finishedAt: "2026-11-08T09:30:00.000Z"
+results:
+  parameters:
+    [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "../components/primitives.yaml#/Uuid" } }]
+  get:
+    operationId: "listLabResults"
+    summary: "Read ranked results for one owned lab run."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "read"
+    x-idempotency: "none"
+    x-refusals: []
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters:
+      [
+        { "name": "stage", "in": "query", "required": false, "schema": { "type": "string", "enum": ["bar", "tick"] } },
+        { "name": "includeDisqualified", "in": "query", "required": false, "schema": { "type": "boolean" } },
+        { "$ref": "../components/parameters.yaml#/Cursor" },
+        { "$ref": "../components/parameters.yaml#/Limit" },
+      ]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["ok", "data", "nextCursor"]
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: "array"
+                  items:
+                    $ref: "../components/lab.yaml#/LabResultSummary"
+                nextCursor:
+                  type: ["string", "null"]
+            example:
+              ok: true
+              data: []
+              nextCursor: null
+trades:
+  parameters:
+    [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "../components/primitives.yaml#/Uuid" } }]
+  get:
+    operationId: "listLabResultTrades"
+    summary: "Page through the simulated trades."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "read"
+    x-idempotency: "none"
+    x-refusals: ["lab_rows_expired"]
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters:
+      [
+        {
+          "name": "part",
+          "in": "query",
+          "required": false,
+          "schema": { "type": "string", "enum": ["train", "unseen"] },
+        },
+        { "$ref": "../components/parameters.yaml#/Cursor" },
+        { "$ref": "../components/parameters.yaml#/Limit" },
+      ]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                [
+                  {
+                    "type": "object",
+                    "required": ["ok", "data", "nextCursor"],
+                    "properties":
+                      {
+                        "ok": { "const": true },
+                        "data": { "type": "array", "items": { "$ref": "../components/lab.yaml#/LabTradeView" } },
+                        "nextCursor": { "type": ["string", "null"] },
+                      },
+                  },
+                  { "$ref": "../components/envelope.yaml#/Refusal" },
+                ]
+            example:
+              ok: true
+              data: []
+              nextCursor: null
+equity:
+  parameters:
+    [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "../components/primitives.yaml#/Uuid" } }]
+  get:
+    operationId: "getLabResultEquity"
+    summary: "Read the simulated equity curve."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "read"
+    x-idempotency: "none"
+    x-refusals: ["lab_rows_expired"]
+    security: [{ "session": [] }, { "apiKey": [] }]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                [
+                  {
+                    "type": "object",
+                    "required": ["ok", "data"],
+                    "properties":
+                      { "ok": { "const": true }, "data": { "$ref": "../components/lab.yaml#/LabEquityView" } },
+                  },
+                  { "$ref": "../components/envelope.yaml#/Refusal" },
+                ]
+            example:
+              ok: true
+              data:
+                points: []
+pin:
+  parameters:
+    [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "../components/primitives.yaml#/Uuid" } }]
+  post:
+    operationId: "pinLabResult"
+    summary: "Pin a retained result."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "connect"
+    x-idempotency: "header"
+    x-refusals: ["lab_rows_expired", "idempotency_conflict"]
+    description: "Lab writes accept a session or an ed25519 key with read scope."
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters: [{ "$ref": "../components/headers.yaml#/IdempotencyKey" }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/lab.yaml#/EmptyRequest"
+          example: {}
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                [
+                  {
+                    "type": "object",
+                    "required": ["ok", "data"],
+                    "properties": { "ok": { "const": true }, "data": { "$ref": "../components/lab.yaml#/LabPinView" } },
+                  },
+                  { "$ref": "../components/envelope.yaml#/Refusal" },
+                ]
+            example:
+              ok: true
+              data:
+                pinned: true
+  delete:
+    operationId: "unpinLabResult"
+    summary: "Unpin a result."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "connect"
+    x-idempotency: "header"
+    x-refusals: ["idempotency_conflict"]
+    description: "Lab writes accept a session or an ed25519 key with read scope."
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters: [{ "$ref": "../components/headers.yaml#/IdempotencyKey" }]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                [
+                  {
+                    "type": "object",
+                    "required": ["ok", "data"],
+                    "properties": { "ok": { "const": true }, "data": { "$ref": "../components/lab.yaml#/LabPinView" } },
+                  },
+                  { "$ref": "../components/envelope.yaml#/Refusal" },
+                ]
+            example:
+              ok: true
+              data:
+                pinned: false
+save-version:
+  parameters:
+    [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "../components/primitives.yaml#/Uuid" } }]
+  post:
+    operationId: "saveLabResultAsVersion"
+    summary: "Save the result variant as a strategy version."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "connect"
+    x-idempotency: "header"
+    x-refusals: ["strategy_archived", "lab_spec_invalid", "idempotency_conflict"]
+    description: "Lab writes accept a session or an ed25519 key with read scope."
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters: [{ "$ref": "../components/headers.yaml#/IdempotencyKey" }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/lab.yaml#/LabSaveVersionRequest"
+          example: {}
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                [
+                  {
+                    "type": "object",
+                    "required": ["ok", "data"],
+                    "properties":
+                      { "ok": { "const": true }, "data": { "$ref": "../components/lab.yaml#/VersionCreated" } },
+                  },
+                  { "$ref": "../components/envelope.yaml#/Refusal" },
+                ]
+            example:
+              ok: true
+              data:
+                version:
+                  id: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 2
+                  specSha256: "abababababababababababababababababababababababababababababababab"
+                  engineVersion: strategy-engine/1
+                  parentVersionId: null
+                  createdVia: api
+                  note: null
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                created: true
+
+coverage:
+  get:
+    operationId: "getLabCoverage"
+    summary: "Read captured market coverage."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "read"
+    x-idempotency: "none"
+    x-refusals: ["feature_unavailable"]
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters:
+      [
+        {
+          "name": "venue",
+          "in": "query",
+          "required": true,
+          "schema": { "$ref": "../components/primitives.yaml#/VenueId" },
+        },
+        { "name": "instrument", "in": "query", "required": false, "schema": { "type": "string" } },
+        {
+          "name": "from",
+          "in": "query",
+          "required": false,
+          "schema": { "$ref": "../components/primitives.yaml#/Instant" },
+        },
+        {
+          "name": "to",
+          "in": "query",
+          "required": false,
+          "schema": { "$ref": "../components/primitives.yaml#/Instant" },
+        },
+      ]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: ["ok", "data"]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: "../components/lab.yaml#/LabCoverageView"
+                - $ref: "../components/envelope.yaml#/Refusal"
+            example:
+              ok: true
+              data:
+                venues: []
+venues:
+  get:
+    operationId: "listLabVenues"
+    summary: "Read venue readiness, licenses and fee-model coverage."
+    tags: ["Lab"]
+    x-owner: "09"
+    x-scope: "read"
+    x-rate-class: "read"
+    x-idempotency: "none"
+    x-refusals: []
+    security: [{ "session": [] }, { "apiKey": [] }]
+    parameters:
+      [{ "$ref": "../components/parameters.yaml#/Cursor" }, { "$ref": "../components/parameters.yaml#/Limit" }]
+    responses:
+      "200":
+        description: "The answer, or a refusal."
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["ok", "data", "nextCursor"]
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: "array"
+                  items:
+                    $ref: "../components/lab.yaml#/LabVenueView"
+                nextCursor:
+                  type: ["string", "null"]
+            example:
+              ok: true
+              data: []
+              nextCursor: null

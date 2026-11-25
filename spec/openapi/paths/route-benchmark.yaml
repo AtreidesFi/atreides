@@ -1,0 +1,40 @@
+benchmark:
+  get:
+    operationId: getRouteBenchmark
+    summary: Read the recorded route benchmark.
+    tags: [Routes]
+    x-owner: "09"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals: [invalid_request, feature_unavailable, unavailable]
+    security: []
+    parameters:
+      - name: group
+        in: query
+        schema: { type: string, pattern: "^(perp|spot|stock):[A-Z0-9._-]{1,32}(/[A-Z0-9._-]{1,32})?$" }
+      - name: days
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 90, default: 30 }
+    responses:
+      "200":
+        description: Stored plan-time route savings for the requested window.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/route-benchmark.yaml#/RouteBenchmark
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                from: "2026-10-15"
+                to: "2026-11-13"
+                rows: []
+                method: Plan-time net saving against the best single venue after every fee, at base tier without capacity limits.
+                asOf: "2026-11-14T05:00:00.000Z"

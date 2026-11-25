@@ -1,0 +1,475 @@
+# Positions, balances, fills, equity, fill explanation, fee summary and the monitor: the wire schemas of 03 §8 (Reads).
+UtcDay:
+  type: string
+  description: A UTC day.
+  pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+  examples:
+    - 2026-11-07
+ReadFailure:
+  type: object
+  description: A read that failed. Never shown as an empty list.
+  required:
+    - ok
+    - failure
+  properties:
+    ok:
+      const: false
+    failure:
+      type: object
+      required:
+        - cause
+        - detail
+      properties:
+        cause:
+          type: string
+          enum:
+            - unreachable
+            - rate_limited
+            - auth_failed
+            - malformed
+            - stale
+        detail:
+          type: string
+PositionJson:
+  type: object
+  required:
+    - instrumentId
+    - side
+    - size
+    - entryPrice
+    - markPrice
+    - liquidationPrice
+    - unrealizedPnl
+    - marginMode
+    - leverage
+  properties:
+    instrumentId:
+      type: string
+    side:
+      type: string
+      enum:
+        - long
+        - short
+    size:
+      $ref: ./primitives.yaml#/DecStr
+    entryPrice:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    markPrice:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    liquidationPrice:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    unrealizedPnl:
+      oneOf:
+        - $ref: ./primitives.yaml#/MoneyJson
+        - type: "null"
+    marginMode:
+      oneOf:
+        - type: string
+          enum:
+            - cross
+            - isolated
+        - type: "null"
+    leverage:
+      type:
+        - integer
+        - "null"
+BalanceJson:
+  type: object
+  required:
+    - asset
+    - total
+    - free
+    - accountMode
+  properties:
+    asset:
+      type: string
+    total:
+      $ref: ./primitives.yaml#/DecStr
+    free:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    accountMode:
+      type: string
+PositionsRead:
+  description: "A positions read: the list or its failure."
+  oneOf:
+    - type: object
+      required:
+        - ok
+        - value
+        - asOf
+      properties:
+        ok:
+          const: true
+        value:
+          type: array
+          items:
+            $ref: "#/PositionJson"
+        asOf:
+          $ref: ./primitives.yaml#/Instant
+    - $ref: "#/ReadFailure"
+BalancesRead:
+  description: "A balances read: the list or its failure."
+  oneOf:
+    - type: object
+      required:
+        - ok
+        - value
+        - asOf
+      properties:
+        ok:
+          const: true
+        value:
+          type: array
+          items:
+            $ref: "#/BalanceJson"
+        asOf:
+          $ref: ./primitives.yaml#/Instant
+    - $ref: "#/ReadFailure"
+EquityRead:
+  description: "An equity read: the amount or its failure."
+  oneOf:
+    - type: object
+      required:
+        - ok
+        - value
+        - asOf
+      properties:
+        ok:
+          const: true
+        value:
+          $ref: ./primitives.yaml#/MoneyJson
+        asOf:
+          $ref: ./primitives.yaml#/Instant
+    - $ref: "#/ReadFailure"
+AccountPositions:
+  type: object
+  description: One account's positions. A failed read of one account never hides another's.
+  required:
+    - accountId
+    - venue
+    - read
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    read:
+      $ref: "#/PositionsRead"
+AccountBalances:
+  type: object
+  description: One account's balances.
+  required:
+    - accountId
+    - venue
+    - read
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    read:
+      $ref: "#/BalancesRead"
+AccountEquity:
+  type: object
+  description: One account's current equity.
+  required:
+    - accountId
+    - venue
+    - read
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    read:
+      $ref: "#/EquityRead"
+Fill:
+  type: object
+  required:
+    - fillId
+    - accountId
+    - venue
+    - instrumentId
+    - side
+    - liquidity
+    - price
+    - size
+    - notional
+    - venueFee
+    - ourFee
+    - state
+    - mode
+    - origin
+    - orderId
+    - clientOrderId
+    - venueFillId
+    - at
+  properties:
+    fillId:
+      $ref: ./primitives.yaml#/Uuid
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instrumentId:
+      type: string
+    side:
+      type: string
+      enum:
+        - buy
+        - sell
+    liquidity:
+      oneOf:
+        - type: string
+          enum:
+            - maker
+            - taker
+        - type: "null"
+    price:
+      $ref: ./primitives.yaml#/DecStr
+    size:
+      $ref: ./primitives.yaml#/DecStr
+    notional:
+      $ref: ./primitives.yaml#/DecStr
+    venueFee:
+      oneOf:
+        - $ref: ./primitives.yaml#/MoneyJson
+        - type: "null"
+    ourFee:
+      oneOf:
+        - $ref: ./primitives.yaml#/MoneyJson
+        - type: "null"
+    state:
+      type: string
+      enum:
+        - provisional
+        - reconciled
+    mode:
+      $ref: ./primitives.yaml#/Mode
+    origin:
+      type:
+        - string
+        - "null"
+    orderId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    clientOrderId:
+      type:
+        - string
+        - "null"
+    venueFillId:
+      type: string
+    at:
+      $ref: ./primitives.yaml#/Instant
+EquityView:
+  type: object
+  required:
+    - current
+    - daily
+  properties:
+    current:
+      type: array
+      items:
+        $ref: "#/AccountEquity"
+    daily:
+      type: array
+      items:
+        type: object
+        required:
+          - day
+          - accountId
+          - equity
+          - source
+        properties:
+          day:
+            $ref: "#/UtcDay"
+          accountId:
+            $ref: ./primitives.yaml#/Uuid
+          equity:
+            $ref: ./primitives.yaml#/MoneyJson
+          source:
+            type: string
+FillExplanation:
+  type: object
+  required:
+    - fill
+    - rate
+    - reconciliation
+    - rewards
+  properties:
+    fill:
+      $ref: "#/Fill"
+    rate:
+      type: object
+      required:
+        - tierName
+        - origin
+        - ruleVersion
+        - cappedBy
+      properties:
+        tierName:
+          type: string
+        origin:
+          type: string
+        ruleVersion:
+          type: string
+        cappedBy:
+          oneOf:
+            - $ref: ./primitives.yaml#/DecStr
+            - type: "null"
+    reconciliation:
+      type: object
+      required:
+        - state
+        - venueDay
+      properties:
+        state:
+          type: string
+          enum:
+            - pending
+            - reconciled
+            - held
+        venueDay:
+          $ref: "#/UtcDay"
+    rewards:
+      type: object
+      required:
+        - referral
+        - state
+      properties:
+        referral:
+          oneOf:
+            - $ref: ./primitives.yaml#/MoneyJson
+            - type: "null"
+        state:
+          type: string
+FeesSummary:
+  type: object
+  required:
+    - byVenue
+  properties:
+    byVenue:
+      type: array
+      items:
+        type: object
+        required:
+          - venue
+          - notional
+          - venueFees
+          - ourFees
+          - fills
+        properties:
+          venue:
+            $ref: ./primitives.yaml#/VenueId
+          notional:
+            $ref: ./primitives.yaml#/MoneyJson
+          venueFees:
+            type: array
+            items:
+              $ref: ./primitives.yaml#/MoneyJson
+          ourFees:
+            type: array
+            items:
+              $ref: ./primitives.yaml#/MoneyJson
+          fills:
+            type: integer
+            minimum: 0
+MonitorPoint:
+  type: object
+  required:
+    - at
+    - requests
+    - refused
+    - rateLimited
+    - latencyMs
+    - streamConnects
+  properties:
+    at:
+      $ref: ./primitives.yaml#/Instant
+    requests:
+      type: integer
+      minimum: 0
+    refused:
+      type: object
+      additionalProperties:
+        type: integer
+        minimum: 0
+      description: Count by error code.
+    rateLimited:
+      type: integer
+      minimum: 0
+      description: "Requests refused by a rate limit. // money-ok: a count of requests, not money"
+    latencyMs:
+      type: object
+      required:
+        - p50
+        - p95
+        - max
+      properties:
+        p50:
+          type: integer
+          minimum: 0
+        p95:
+          type: integer
+          minimum: 0
+        max:
+          type: integer
+          minimum: 0
+    streamConnects:
+      type: integer
+      minimum: 0
+MonitorView:
+  type: object
+  required:
+    - from
+    - bucket
+    - series
+    - venueRejects
+  properties:
+    from:
+      $ref: ./primitives.yaml#/Instant
+    bucket:
+      type: string
+      enum:
+        - 1m
+        - 5m
+    series:
+      type: array
+      items:
+        type: object
+        required:
+          - principal
+          - points
+        properties:
+          principal:
+            type: string
+            description: '"key:<keyText>" or "session".'
+          points:
+            type: array
+            items:
+              $ref: "#/MonitorPoint"
+    venueRejects:
+      type: array
+      items:
+        type: object
+        required:
+          - venue
+          - code
+          - count
+        properties:
+          venue:
+            $ref: ./primitives.yaml#/VenueId
+          code:
+            type: string
+          count:
+            type: integer
+            minimum: 0

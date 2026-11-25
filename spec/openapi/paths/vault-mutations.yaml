@@ -1,0 +1,621 @@
+# Vault-track mutations (12 §15.4.2). The runtime mounts these only with the V1 vault role bindings.
+notice:
+  post:
+    operationId: giveVaultNoticeV1
+    tags: [Vaults]
+    summary: Start the vault notice period.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: vaultId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties:
+                      {
+                        ok: { const: true },
+                        data:
+                          {
+                            type: object,
+                            additionalProperties: false,
+                            required: [noticeEndsAt],
+                            properties: { noticeEndsAt: { $ref: ../components/primitives.yaml#/Instant } },
+                          },
+                      },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example: { "ok": true, "data": { "noticeEndsAt": "2026-11-29T12:00:00.000Z" } }
+
+accounts:
+  post:
+    operationId: openVaultAccountV1
+    tags: [Vaults]
+    summary: Request a vault account for the signed-in wallet owner.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: vaultId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            {
+              type: object,
+              additionalProperties: false,
+              required: [walletId, redemptionAddress],
+              properties:
+                {
+                  walletId: { $ref: ../components/primitives.yaml#/Uuid },
+                  redemptionAddress: { type: string, minLength: 1 },
+                },
+            }
+          example:
+            { "walletId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d93", "redemptionAddress": "fixture-redemption-address" }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties: { ok: { const: true }, data: { $ref: ../components/vaults.yaml#/MyVaultAccount } },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  {
+                    "vaultAccountId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d81",
+                    "vaultId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80",
+                    "seatRole": "lp",
+                    "status": "proposed",
+                    "nav": "1050.25",
+                    "navAt": "2026-11-07T09:30:00.000Z",
+                    "perfAccrued": "8.5",
+                    "lots":
+                      [
+                        {
+                          "lotId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d82",
+                          "amount": "1000",
+                          "units": "960.5",
+                          "mark": "1.0412",
+                          "creditedAt": "2026-10-20T00:00:00.000Z",
+                          "lockedUntil": "2026-10-27T00:00:00.000Z",
+                        },
+                      ],
+                    "redemptionAddress": "0xfixtureaddress",
+                    "openRedemptions":
+                      [
+                        {
+                          "id": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d83",
+                          "status": "queued",
+                          "path": "queued",
+                          "net": "250",
+                          "deadlineAt": "2026-11-09T00:00:00.000Z",
+                        },
+                      ],
+                    "statements":
+                      [
+                        {
+                          "month": "2026-10",
+                          "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                        },
+                      ],
+                  },
+              }
+
+registration:
+  post:
+    operationId: registerVaultSeatV1
+    tags: [Vaults]
+    summary: Record the LP’s verified seat registration.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            {
+              type: object,
+              additionalProperties: false,
+              required: [signature],
+              properties: { signature: { type: string, minLength: 1 } },
+            }
+          example: { "signature": "fixture-registration-signature" }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties: { ok: { const: true }, data: { $ref: ../components/vaults.yaml#/MyVaultAccount } },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  {
+                    "vaultAccountId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d81",
+                    "vaultId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80",
+                    "seatRole": "lp",
+                    "status": "active",
+                    "nav": "1050.25",
+                    "navAt": "2026-11-07T09:30:00.000Z",
+                    "perfAccrued": "8.5",
+                    "lots":
+                      [
+                        {
+                          "lotId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d82",
+                          "amount": "1000",
+                          "units": "960.5",
+                          "mark": "1.0412",
+                          "creditedAt": "2026-10-20T00:00:00.000Z",
+                          "lockedUntil": "2026-10-27T00:00:00.000Z",
+                        },
+                      ],
+                    "redemptionAddress": "0xfixtureaddress",
+                    "openRedemptions":
+                      [
+                        {
+                          "id": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d83",
+                          "status": "queued",
+                          "path": "queued",
+                          "net": "250",
+                          "deadlineAt": "2026-11-09T00:00:00.000Z",
+                        },
+                      ],
+                    "statements":
+                      [
+                        {
+                          "month": "2026-10",
+                          "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                        },
+                      ],
+                  },
+              }
+
+deposit:
+  post:
+    operationId: openVaultDepositV1
+    tags: [Vaults]
+    summary: Get a bounded vault deposit instruction.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            {
+              type: object,
+              additionalProperties: false,
+              required: [amount],
+              properties: { amount: { $ref: ../components/primitives.yaml#/DecStr } },
+            }
+          example: { "amount": "100" }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties:
+                      {
+                        ok: { const: true },
+                        data:
+                          {
+                            type: object,
+                            additionalProperties: false,
+                            required: [depositId, expiresAt, instruction],
+                            properties:
+                              {
+                                depositId: { $ref: ../components/primitives.yaml#/Uuid },
+                                expiresAt: { $ref: ../components/primitives.yaml#/Instant },
+                                instruction: { type: object, additionalProperties: {} },
+                              },
+                          },
+                      },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  {
+                    "depositId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d91",
+                    "instruction": { "asset": "usdc", "amount": "100" },
+                    "expiresAt": "2026-11-15T13:00:00.000Z",
+                  },
+              }
+
+redemption:
+  post:
+    operationId: openVaultRedemptionV1
+    tags: [Vaults]
+    summary: Request a vault redemption to the recorded LP address.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            {
+              oneOf:
+                [
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [amount],
+                    properties: { amount: { $ref: ../components/primitives.yaml#/DecStr } },
+                  },
+                  { type: object, additionalProperties: false, required: [all], properties: { all: { const: true } } },
+                ],
+            }
+          example: { "all": true }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties:
+                      {
+                        ok: { const: true },
+                        data:
+                          {
+                            type: object,
+                            additionalProperties: false,
+                            required: [redemptionId, plan],
+                            properties:
+                              {
+                                redemptionId: { $ref: ../components/primitives.yaml#/Uuid },
+                                plan: { $ref: ../components/vaults.yaml#/VaultRedemptionPlan },
+                              },
+                          },
+                      },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  {
+                    "redemptionId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d92",
+                    "plan":
+                      {
+                        "path": "queued",
+                        "lots": [{ "lotId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d82", "units": "240" }],
+                        "fraction": "0.25",
+                        "deadlineAt": "2026-11-17T12:00:00.000Z",
+                        "capped": false,
+                      },
+                  },
+              }
+
+redemption-sign:
+  post:
+    operationId: signVaultRedemptionV1
+    tags: [Vaults]
+    summary: Verify a redemption co-signature for the LP.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: redemptionId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            {
+              type: object,
+              additionalProperties: false,
+              required: [signature],
+              properties: { signature: { type: string, minLength: 1 } },
+            }
+          example: { "signature": "fixture-redemption-signature" }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties:
+                      {
+                        ok: { const: true },
+                        data:
+                          {
+                            type: object,
+                            additionalProperties: false,
+                            required: [status],
+                            properties: { status: { $ref: ../components/vaults.yaml#/RedemptionStatus } },
+                          },
+                      },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example: { "ok": true, "data": { "status": "cosigned" } }
+
+request-sign:
+  post:
+    operationId: signVaultSeatRequestV1
+    tags: [Vaults]
+    summary: Verify and record a signature for the LP’s pending request.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            {
+              type: object,
+              additionalProperties: false,
+              required: [signature],
+              properties: { signature: { type: string, minLength: 1 } },
+            }
+          example: { "signature": "fixture-seat-signature" }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties: { ok: { const: true }, data: { $ref: ../components/vaults.yaml#/SeatRequestJson } },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  {
+                    "id": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d90",
+                    "vaultAccountId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d81",
+                    "action": "redeem",
+                    "reason": "The LP requested a withdrawal.",
+                    "status": "lp_signed",
+                    "expiresAt": "2026-11-17T12:00:00.000Z",
+                  },
+              }
+
+request-decline:
+  post:
+    operationId: declineVaultSeatRequestV1
+    tags: [Vaults]
+    summary: Decline the LP’s pending seat request.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties: { ok: { const: true }, data: { $ref: ../components/vaults.yaml#/SeatRequestJson } },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  {
+                    "id": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d90",
+                    "vaultAccountId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d81",
+                    "action": "redeem",
+                    "reason": "The LP requested a withdrawal.",
+                    "status": "declined",
+                    "expiresAt": "2026-11-17T12:00:00.000Z",
+                  },
+              }
+
+orders:
+  post:
+    operationId: placeVaultOrderV1
+    tags: [Vaults]
+    summary: Place vault orders as the approved manager.
+    x-owner: "12"
+    x-scope: trade
+    x-rate-class: dynamic
+    x-idempotency: client_order_id
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ apiKey: [] }]
+    parameters:
+      - name: vaultId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: ../components/orders.yaml#/PlaceOrder }
+          example:
+            {
+              "accountId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10",
+              "clientOrderId": "bot-7-000123",
+              "instrumentId": "hyperliquid:BTC",
+              "side": "buy",
+              "type": "limit",
+              "tif": "gtc",
+              "price": "65000",
+              "size": "0.01",
+              "reduceOnly": false,
+            }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties:
+                      { ok: { const: true }, data: { type: array, items: { $ref: ../components/orders.yaml#/Order } } },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  [
+                    {
+                      "orderId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11",
+                      "routeId": null,
+                      "clientOrderId": "bot-7-000123",
+                      "accountId": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10",
+                      "venue": "hyperliquid",
+                      "instrumentId": "hyperliquid:BTC",
+                      "cls": "perp",
+                      "mode": "gateway",
+                      "keyPlace": "enclave",
+                      "origin": "sdk",
+                      "side": "buy",
+                      "type": "limit",
+                      "tif": "gtc",
+                      "price": "65000",
+                      "size": "0.01",
+                      "reduceOnly": false,
+                      "state": "resting",
+                      "filledSize": "0",
+                      "avgPrice": null,
+                      "venueOrderId": "184467",
+                      "fee": { "rate": "0.00025", "field": "builder: {b, f}", "asked": null },
+                      "reject": null,
+                      "finalReason": null,
+                      "unfilledByBand": null,
+                      "unknown": null,
+                      "userAction": null,
+                      "attached": { "tp": null, "sl": null },
+                      "executionReport": null,
+                      "createdAt": "2026-11-07T09:30:00.000Z",
+                      "updatedAt": "2026-11-07T09:30:05.000Z",
+                    },
+                  ],
+              }

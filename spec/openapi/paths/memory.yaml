@@ -1,0 +1,244 @@
+# Assistant memory (10 §6, §17.4). At most 30 facts; secrets are refused.
+memory:
+  get:
+    operationId: listMemory
+    summary: List the remembered facts.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: assistant.memory
+    security:
+      - session: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - facts
+                      properties:
+                        facts:
+                          type: array
+                          items:
+                            $ref: ../components/assistant.yaml#/MemoryFact
+                - &a1
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                facts:
+                  - &a2
+                    id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                    text: I trade mostly BTC and ETH perps.
+                    source: user
+                    createdAt: 2026-11-07T09:30:00.000Z
+  post:
+    operationId: addMemoryFact
+    summary: Add a remembered fact.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - memory_full
+      - memory_secret_refused
+      - invalid_request
+      - feature_unavailable
+    x-flag: assistant.memory
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/MemoryTextRequest
+          example:
+            text: I trade mostly BTC and ETH perps.
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/MemoryFact
+                - *a1
+            example:
+              ok: true
+              data: *a2
+fact:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  put:
+    operationId: updateMemoryFact
+    summary: Change a remembered fact.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - memory_secret_refused
+      - invalid_request
+      - feature_unavailable
+    x-flag: assistant.memory
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/MemoryTextRequest
+          example:
+            text: I trade mostly BTC perps.
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/MemoryFact
+                - *a1
+            example:
+              ok: true
+              data: *a2
+  delete:
+    operationId: deleteMemoryFact
+    summary: Forget one fact.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    x-flag: assistant.memory
+    security:
+      - session: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                - *a1
+            example:
+              ok: true
+              data: {}
+forgetAll:
+  post:
+    operationId: forgetAllMemory
+    summary: Forget every fact.
+    description:
+      Needs a recent step-up (the authenticator code when the user has turned it on). Shreds the memory key and
+      starts a new generation.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - forbidden
+      - unavailable
+      - second_factor_required
+      - second_factor_invalid
+      - feature_unavailable
+    x-flag: assistant.memory
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/SecondFactor
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - newGeneration
+                      properties:
+                        newGeneration:
+                          type: integer
+                          minimum: 1
+                - *a1
+            example:
+              ok: true
+              data:
+                newGeneration: 2

@@ -1,0 +1,148 @@
+# Passport shapes (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+PassportPeriod:
+  type: string
+  enum:
+    - 30d
+    - 90d
+    - all
+PassportMetrics:
+  type: object
+  required:
+    - scope
+    - period
+    - firstDay
+    - observationDays
+    - activeDays
+    - totalReturn
+    - maxDrawdown
+    - rasT
+    - volumeThroughUsBand
+    - shareThroughUs
+    - venues
+    - complete
+    - missing
+  properties:
+    scope:
+      type: string
+    period:
+      $ref: "#/PassportPeriod"
+    firstDay:
+      oneOf:
+        - $ref: ./competitions.yaml#/Day
+        - type: "null"
+    observationDays:
+      type: integer
+      minimum: 0
+    activeDays:
+      type: integer
+      minimum: 0
+    totalReturn:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    maxDrawdown:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    rasT:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    volumeThroughUsBand:
+      type:
+        - string
+        - "null"
+    shareThroughUs:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    venues:
+      type: array
+      items:
+        $ref: ./primitives.yaml#/VenueId
+    complete:
+      type: boolean
+    missing:
+      type: array
+      items:
+        type: object
+        required:
+          - venue
+          - reason
+        properties:
+          venue:
+            $ref: ./primitives.yaml#/VenueId
+          reason:
+            type: string
+            enum:
+              - source_missing
+              - source_mismatch
+PublicPassport:
+  type: object
+  required:
+    - token
+    - displayName
+    - metrics
+  properties:
+    token:
+      type: string
+    displayName:
+      type:
+        - string
+        - "null"
+    metrics:
+      type: array
+      items:
+        $ref: "#/PassportMetrics"
+MyPassport:
+  allOf:
+    - $ref: "#/PublicPassport"
+    - type: object
+      required:
+        - showPublicly
+        - exact
+      properties:
+        showPublicly:
+          type: boolean
+        exact:
+          type: array
+          items:
+            type: object
+            required:
+              - scope
+              - period
+              - volumeThroughUsUsd
+              - equityUsd
+              - pnlUsd
+            properties:
+              scope:
+                type: string
+              period:
+                type: string
+              volumeThroughUsUsd:
+                oneOf:
+                  - $ref: ./primitives.yaml#/DecStr
+                  - type: "null"
+              equityUsd:
+                oneOf:
+                  - $ref: ./primitives.yaml#/DecStr
+                  - type: "null"
+              pnlUsd:
+                oneOf:
+                  - $ref: ./primitives.yaml#/DecStr
+                  - type: "null"
+UpdatePassportRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - displayName
+    - showPublicly
+  properties:
+    displayName:
+      type:
+        - string
+        - "null"
+      maxLength: 100
+      description: Checked against the rules of 11 §12; a bad name is refused as display_name_invalid.
+    showPublicly:
+      type: boolean

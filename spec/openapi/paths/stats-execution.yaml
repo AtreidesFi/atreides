@@ -1,0 +1,102 @@
+# The execution statistics block (13 §11.3).
+execution:
+  get:
+    operationId: getExecutionStats
+    summary: Read execution statistics of gateway and terminal orders.
+    description:
+      At most 31 days and 20000 orders. Direct-mode orders are not ours to time and are absent. Each row carries
+      the summed execution reports (05 section 10b.5) of its orders as `report`.
+    tags:
+      - Web
+    x-owner: "13"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: from
+        in: query
+        required: true
+        description: Start of the period.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: to
+        in: query
+        required: true
+        description: End of the period; at most 31 days after from.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: groupBy
+        in: query
+        required: true
+        description: How rows are grouped.
+        schema:
+          type: string
+          enum:
+            - key
+            - venue
+            - origin
+            - instrument
+      - name: keyId
+        in: query
+        required: false
+        description: Only orders placed with this API key.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - name: venue
+        in: query
+        required: false
+        description: Only orders on this venue.
+        schema:
+          $ref: ../components/primitives.yaml#/VenueId
+      - name: format
+        in: query
+        required: false
+        description: "`csv` adds the `csv` text, one row per order, to the answer. Default `json`."
+        schema:
+          type: string
+          enum:
+            - json
+            - csv
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/overview.yaml#/ExecutionView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                rows:
+                  - key: hyperliquid
+                    label: Hyperliquid
+                    orders: 120
+                    filledOrders: 98
+                    partialOrders: 4
+                    rejectedOrders: 3
+                    unknownOrders: 0
+                    postOnlyOrders: 40
+                    postOnlyFilled: 31
+                    ackLatencyMs:
+                      p50: 42
+                      p95: 180
+                    slippageBps: "0.8"
+                    ourFee:
+                      - amount: "12.4"
+                        asset: usdc
+                asOf: 2026-11-07T09:30:00.000Z

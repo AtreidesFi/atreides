@@ -1,0 +1,343 @@
+# Prefilled tickets (10 §7, §17.4). A ticket places nothing until its owner confirms it in the app.
+tickets:
+  post:
+    operationId: prepareTicket
+    summary: Prepare a ticket for a trade.
+    description:
+      Writes a ticket in status `open` that lives 5 minutes. Places nothing. Session (surface cmdk), MCP token or
+      the assistant's own call; an API key is refused with `forbidden`.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - forbidden
+      - not_found
+      - invalid_request
+      - ticket_unit_not_open
+      - ticket_duplicate
+      - tick_size
+      - lot_size
+      - min_notional
+      - insufficient_margin
+      - fee_approval_missing
+      - key_expiring
+      - agent_expired
+      - venue_reduce_only
+      - venue_paused
+      - kill_switch_active
+      - stale_price
+      - price_band
+      - limit_exceeded
+      - mcp_quota_exceeded
+      - feature_unavailable
+    x-flag: tickets.prefilled
+    x-mcp-tool:
+      name: prepare_ticket
+      description: Prepare a prefilled trade ticket for the user to review and confirm in the app. Places nothing.
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/PrepareTicketRequest
+          example:
+            legs:
+              - kind: order
+                instrument: BTC-PERP
+                venue: hyperliquid
+                side: buy
+                type: limit
+                px: "64210.5"
+                sizing:
+                  kind: size
+                  sz: "0.5"
+                purpose: open
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/TicketView
+                - &a1
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: &a2
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: open
+                title: Buy 0.5 BTC-PERP on Hyperliquid
+                lines: &a4
+                  - Buy 0.5 BTC-PERP at 64,210.5 on Hyperliquid
+                  - Fee about 16.06 USDC (venue 14.45, ours 1.61)
+                legs: &a5
+                  - legNo: 1
+                    venue: hyperliquid
+                    mode: gateway
+                    keyPlace: enclave
+                    cls: perp
+                    account: 0x12ab…89ef
+                    instrument: BTC-PERP
+                    side: buy
+                    type: limit
+                    px: "64210.5"
+                    sz: "0.5"
+                    notional:
+                      amount: "32105.25"
+                      asset: usdc
+                    reduceOnly: false
+                    quotedMark: "64208"
+                    fee:
+                      venue:
+                        amount: "14.45"
+                        asset: usdc
+                      ours:
+                        amount: "1.61"
+                        asset: usdc
+                      ourRateBps: "0.5"
+                    keyExpiresInMs: null
+                    largeOrder: false
+                    clientOrderId: tkt-01936f2e-1
+                    status: waiting
+                    result: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                expiresAt: 2026-11-07T09:35:00.000Z
+                reviewUrl: https://app.example.com/t/01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                realMoney: false
+                supersededBy: null
+ticket:
+  parameters:
+    - &a3
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getTicket
+    summary: Read one ticket.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/TicketView
+                - *a1
+            example:
+              ok: true
+              data: *a2
+confirm:
+  parameters:
+    - *a3
+  post:
+    operationId: confirmTicket
+    summary: Confirm a ticket and place its legs.
+    description: Session only. Gateway legs run at once; browser-key and wallet legs come back as `device` sign requests.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: order
+    x-idempotency: header
+    x-refusals:
+      - terms_not_accepted
+      - ticket_expired
+      - ticket_unit_not_open
+      - not_found
+      - forbidden
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: tickets.prefilled
+    x-forwards: true
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/ConfirmResult
+                - *a1
+            example:
+              ok: true
+              data:
+                kind: ran
+                ticket:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  status: done
+                  title: Buy 0.5 BTC-PERP on Hyperliquid
+                  lines: *a4
+                  legs: *a5
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  expiresAt: 2026-11-07T09:35:00.000Z
+                  reviewUrl: https://app.example.com/t/01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  realMoney: false
+                  supersededBy: null
+deviceResult:
+  parameters:
+    - *a3
+    - name: legNo
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 4
+  post:
+    operationId: recordTicketDeviceLeg
+    summary: Record the result of a device-signed leg.
+    description: The api reads the leg's order by account and client order id. Idempotent by that client order id, so it
+      takes no header.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - invalid_request
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/DeviceLegResult
+                - *a1
+            example:
+              ok: true
+              data:
+                ticket: *a2
+                next: null
+cancel:
+  parameters:
+    - *a3
+  post:
+    operationId: cancelTicket
+    summary: Cancel an open ticket.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - state_conflict
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/TicketView
+                - *a1
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: cancelled
+                title: Buy 0.5 BTC-PERP on Hyperliquid
+                lines: *a4
+                legs: *a5
+                createdAt: 2026-11-07T09:30:00.000Z
+                expiresAt: 2026-11-07T09:35:00.000Z
+                reviewUrl: https://app.example.com/t/01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                realMoney: false
+                supersededBy: null

@@ -1,0 +1,747 @@
+# Hosted bots (09 §5.12, 03 §7.5b). Owner 09. Every operation answers feature_unavailable while the flag bots.hosted is off.
+botTemplates:
+  get:
+    operationId: listBotTemplates
+    summary: List the bot templates.
+    description: "The templates a bot can start from."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: bots.hosted
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/bots.yaml#/BotTemplate
+            example:
+              ok: true
+              data: [{ name: grid, lang: [python, ts], description: A grid of resting orders. }]
+bots:
+  get:
+    operationId: listBots
+    summary: List the bots of the user.
+    description: "Never returns a file."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: bots.hosted
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/bots.yaml#/Bot
+            example:
+              ok: true
+              data:
+                [
+                  {
+                    botId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80,
+                    name: grid eth,
+                    lang: python,
+                    template: grid,
+                    status: running,
+                    desired: running,
+                    stopReason: null,
+                    restarts: 0,
+                    version:
+                      {
+                        number: 1,
+                        fileName: bot.py,
+                        sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                        byteCount: 1200,
+                      },
+                    keyId: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b,
+                    accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+                    resources:
+                      {
+                        cpuMillisUsed: 40,
+                        cpuMillisLimit: 500,
+                        memoryMbUsed: 60,
+                        memoryMbLimit: 512,
+                        diskMbUsed: 1,
+                        diskMbLimit: 256,
+                      },
+                    createdAt: "2026-11-23T09:30:00.000Z",
+                    updatedAt: "2026-11-23T09:31:00.000Z",
+                  },
+                ]
+  post:
+    operationId: createBot
+    summary: Create a bot.
+    description: "Makes the bot and its key pair; the owner signs the returned grant message with the wallet and sends it to the grant route. The key is bound to the chosen accounts with the given limits."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - invalid_request
+      - bot_limit_reached
+      - account_not_bound
+      - bots_unavailable
+      - unavailable
+      - second_factor_required
+      - second_factor_invalid
+    x-flag: bots.hosted
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/SecondFactor
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/bots.yaml#/BotCreateRequest
+          example:
+            {
+              name: grid eth,
+              lang: python,
+              template: grid,
+              accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+              limits:
+                {
+                  maxOrderNotional: { amount: "100", asset: usdc },
+                  dailyNotional: { amount: "1000", asset: usdc },
+                  lossLimit: { amount: "50", asset: usdc },
+                },
+            }
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/BotCreated
+            example:
+              ok: true
+              data:
+                {
+                  bot:
+                    {
+                      botId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80,
+                      name: grid eth,
+                      lang: python,
+                      template: grid,
+                      status: running,
+                      desired: running,
+                      stopReason: null,
+                      restarts: 0,
+                      version:
+                        {
+                          number: 1,
+                          fileName: bot.py,
+                          sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                          byteCount: 1200,
+                        },
+                      keyId: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b,
+                      accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+                      resources:
+                        {
+                          cpuMillisUsed: 40,
+                          cpuMillisLimit: 500,
+                          memoryMbUsed: 60,
+                          memoryMbLimit: 512,
+                          diskMbUsed: 1,
+                          diskMbLimit: 256,
+                        },
+                      createdAt: "2026-11-23T09:30:00.000Z",
+                      updatedAt: "2026-11-23T09:31:00.000Z",
+                    },
+                  grantMessage: The grant text.,
+                }
+bot:
+  get:
+    operationId: getBot
+    summary: Read a bot.
+    description: "Status, resources and the key; never the file."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+    x-flag: bots.hosted
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/Bot
+            example:
+              ok: true
+              data:
+                {
+                  botId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80,
+                  name: grid eth,
+                  lang: python,
+                  template: grid,
+                  status: running,
+                  desired: running,
+                  stopReason: null,
+                  restarts: 0,
+                  version:
+                    {
+                      number: 1,
+                      fileName: bot.py,
+                      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                      byteCount: 1200,
+                    },
+                  keyId: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b,
+                  accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+                  resources:
+                    {
+                      cpuMillisUsed: 40,
+                      cpuMillisLimit: 500,
+                      memoryMbUsed: 60,
+                      memoryMbLimit: 512,
+                      diskMbUsed: 1,
+                      diskMbLimit: 256,
+                    },
+                  createdAt: "2026-11-23T09:30:00.000Z",
+                  updatedAt: "2026-11-23T09:31:00.000Z",
+                }
+  delete:
+    operationId: deleteBot
+    summary: Delete a bot.
+    description: "Stops it, revokes its key and purges its files within the retention bound."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+      - second_factor_required
+      - second_factor_invalid
+    x-flag: bots.hosted
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/SecondFactor
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: object
+                  additionalProperties: false
+            example:
+              ok: true
+              data: {}
+botGrant:
+  post:
+    operationId: grantBot
+    summary: Grant the bot its key.
+    description: "The owner's wallet signature over the grant message of createBot (03 API-017)."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+      - grant_invalid
+      - grant_signer_not_owner
+      - invalid_request
+    x-flag: bots.hosted
+    security:
+      - session: []
+    parameters:
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/bots.yaml#/BotGrantRequest
+          example: { signature: "0xabc", signer: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f", scheme: eip191 }
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/Bot
+            example:
+              ok: true
+              data:
+                {
+                  botId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80,
+                  name: grid eth,
+                  lang: python,
+                  template: grid,
+                  status: running,
+                  desired: running,
+                  stopReason: null,
+                  restarts: 0,
+                  version:
+                    {
+                      number: 1,
+                      fileName: bot.py,
+                      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                      byteCount: 1200,
+                    },
+                  keyId: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b,
+                  accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+                  resources:
+                    {
+                      cpuMillisUsed: 40,
+                      cpuMillisLimit: 500,
+                      memoryMbUsed: 60,
+                      memoryMbLimit: 512,
+                      diskMbUsed: 1,
+                      diskMbLimit: 256,
+                    },
+                  createdAt: "2026-11-23T09:30:00.000Z",
+                  updatedAt: "2026-11-23T09:31:00.000Z",
+                }
+botFile:
+  put:
+    operationId: putBotFile
+    summary: Upload the file of a bot.
+    description: "One file, a new version each time. A running bot restarts on it."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+      - bot_file_invalid
+      - second_factor_required
+      - second_factor_invalid
+    x-flag: bots.hosted
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/SecondFactor
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/bots.yaml#/BotFileRequest
+          example: { fileName: bot.py, contentBase64: ZGVmIG9uX2V2ZW50KGN0eCwgZXZlbnQpOgogICAgcGFzcwo= }
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/BotVersion
+            example:
+              ok: true
+              data:
+                {
+                  number: 2,
+                  fileName: bot.py,
+                  sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                  byteCount: 1200,
+                }
+botStart:
+  post:
+    operationId: startBot
+    summary: Start a bot.
+    description: "Starts the bot: sets its desired state; the runner converges within seconds. A trade key must be bound to every account of the bot."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+      - bot_not_ready
+      - bots_unavailable
+      - account_not_bound
+    x-flag: bots.hosted
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/Bot
+            example:
+              ok: true
+              data:
+                {
+                  botId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80,
+                  name: grid eth,
+                  lang: python,
+                  template: grid,
+                  status: running,
+                  desired: running,
+                  stopReason: null,
+                  restarts: 0,
+                  version:
+                    {
+                      number: 1,
+                      fileName: bot.py,
+                      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                      byteCount: 1200,
+                    },
+                  keyId: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b,
+                  accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+                  resources:
+                    {
+                      cpuMillisUsed: 40,
+                      cpuMillisLimit: 500,
+                      memoryMbUsed: 60,
+                      memoryMbLimit: 512,
+                      diskMbUsed: 1,
+                      diskMbLimit: 256,
+                    },
+                  createdAt: "2026-11-23T09:30:00.000Z",
+                  updatedAt: "2026-11-23T09:31:00.000Z",
+                }
+botStop:
+  post:
+    operationId: stopBot
+    summary: Stop a bot.
+    description: "Stops the bot: sets its desired state; the runner converges within seconds. A trade key must be bound to every account of the bot."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+      - bot_not_ready
+      - bots_unavailable
+      - account_not_bound
+    x-flag: bots.hosted
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/Bot
+            example:
+              ok: true
+              data:
+                {
+                  botId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80,
+                  name: grid eth,
+                  lang: python,
+                  template: grid,
+                  status: running,
+                  desired: running,
+                  stopReason: null,
+                  restarts: 0,
+                  version:
+                    {
+                      number: 1,
+                      fileName: bot.py,
+                      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                      byteCount: 1200,
+                    },
+                  keyId: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b,
+                  accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+                  resources:
+                    {
+                      cpuMillisUsed: 40,
+                      cpuMillisLimit: 500,
+                      memoryMbUsed: 60,
+                      memoryMbLimit: 512,
+                      diskMbUsed: 1,
+                      diskMbLimit: 256,
+                    },
+                  createdAt: "2026-11-23T09:30:00.000Z",
+                  updatedAt: "2026-11-23T09:31:00.000Z",
+                }
+botRestart:
+  post:
+    operationId: restartBot
+    summary: Restart a bot.
+    description: "Restarts the bot: sets its desired state; the runner converges within seconds. A trade key must be bound to every account of the bot."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+      - bot_not_ready
+      - bots_unavailable
+      - account_not_bound
+    x-flag: bots.hosted
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/Bot
+            example:
+              ok: true
+              data:
+                {
+                  botId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80,
+                  name: grid eth,
+                  lang: python,
+                  template: grid,
+                  status: running,
+                  desired: running,
+                  stopReason: null,
+                  restarts: 0,
+                  version:
+                    {
+                      number: 1,
+                      fileName: bot.py,
+                      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+                      byteCount: 1200,
+                    },
+                  keyId: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b,
+                  accountIds: [01936f2e-7c42-7399-b608-bcab9a8f7e6d],
+                  resources:
+                    {
+                      cpuMillisUsed: 40,
+                      cpuMillisLimit: 500,
+                      memoryMbUsed: 60,
+                      memoryMbLimit: 512,
+                      diskMbUsed: 1,
+                      diskMbLimit: 256,
+                    },
+                  createdAt: "2026-11-23T09:30:00.000Z",
+                  updatedAt: "2026-11-23T09:31:00.000Z",
+                }
+botLogs:
+  get:
+    operationId: getBotLogs
+    summary: Read the log lines of a bot.
+    description: "The last lines the runner reported, oldest first."
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - not_found
+    x-flag: bots.hosted
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: botId
+        in: path
+        required: true
+        description: The bot.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - name: since
+        in: query
+        required: false
+        description: The `next` of an earlier read.
+        schema:
+          type: string
+          maxLength: 20
+      - name: limit
+        in: query
+        required: false
+        description: At most 1000.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/bots.yaml#/BotLogs
+            example:
+              ok: true
+              data: { lines: [{ at: "2026-11-23T09:31:00.000Z", stream: out, text: started }], next: "1" }

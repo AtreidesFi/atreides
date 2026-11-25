@@ -1,0 +1,98 @@
+# The user's interface preferences (13b §9.9).
+preferences:
+  get:
+    operationId: getPreferences
+    summary: Read the interface preferences.
+    tags:
+      - Web
+    x-owner: 13b
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/preferences.yaml#/PreferencesDoc
+            example:
+              ok: true
+              data:
+                version: 0
+                prefs: &a1
+                  schema: 2
+                  density: compact
+                  motion: system
+                  numberGrouping: comma
+                  timeDisplay: local
+                  hideBalancesBelowUsd: null
+                  largeOrderPct: "10"
+                  browserKeyIdleMinutes: 15
+                  landing: overview
+                  dismissedHints: []
+                updatedAt: null
+  put:
+    operationId: putPreferences
+    summary: Save the interface preferences.
+    description: >-
+      Writes version + 1 only if the stored version equals the one sent; otherwise `preferences_conflict`.
+      The schema describes recognized preferences. Unknown fields inside `prefs` are discarded.
+      The submitted `prefs` document is limited to 16 KiB of canonical JSON.
+    tags:
+      - Web
+    x-owner: 13b
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - preferences_conflict
+      - preferences_invalid
+      - idempotency_conflict
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/preferences.yaml#/PutPreferences
+          example:
+            version: 0
+            prefs: *a1
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/preferences.yaml#/PreferencesDoc
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                version: 1
+                prefs: *a1
+                updatedAt: 2026-11-07T09:30:00.000Z

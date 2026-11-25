@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atreides"
+version = "0.0.0"
+description = "Atreides Python SDK"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = [
+  "cryptography==50.0.2",
+  "httpx==0.28.1",
+  "pydantic==2.14.2",
+  "websockets==17.4",
+]
+
+[project.optional-dependencies]
+hyperliquid = ["hyperliquid-python-sdk==0.24.0"]
+robinhood-chain = ["eth-account==0.13.7"]
+
+[project.scripts]
+atreides = "atreides.cli:main"
+
+[dependency-groups]
+dev = [
+  "datamodel-code-generator==0.87.0",
+  "mypy==2.4.1",
+  "pytest==9.2.0",
+  "ruff==0.17.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atreides"]
+
+[tool.uv]
+# Pin the dependency resolution date.
+exclude-newer = "2026-10-31T00:00:00Z"
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+extend-exclude = [
+  "src/atreides/models.py",
+  "src/atreides/_operations.py",
+  "src/atreides/stream_models.py",
+  "src/atreides/error_codes.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,164 @@
+quota:
+  get:
+    operationId: getExportQuota
+    summary: Read the caller's monthly raw export quota.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: Current UTC month allowance and use.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ok, data]
+              properties:
+                ok: { const: true }
+                data:
+                  $ref: ../components/lab-exports.yaml#/ExportQuotaView
+            example:
+              ok: true
+              data:
+                periodMonth: "2026-11-01"
+                allowanceBytes: "5368709120"
+                reservedBytes: "8192"
+                usedBytes: "0"
+                volume30d: "0"
+                nextStepVolume: "1000000"
+                nextStepAllowanceBytes: "6442450944"
+exports:
+  get:
+    operationId: listExports
+    summary: List exports owned by the caller.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: Export jobs in descending creation order.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ok, data, nextCursor]
+              properties:
+                ok: { const: true }
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/lab-exports.yaml#/ExportJobView
+                nextCursor: { type: [string, "null"] }
+            example: { ok: true, data: [], nextCursor: null }
+  post:
+    operationId: createExport
+    summary: Reserve uncompressed data bytes and queue an export.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: heavy
+    x-flag: lab.exports
+    x-idempotency: header
+    x-refusals: [export_quota_exceeded, export_not_allowed, lab_data_gap, feature_unavailable, idempotency_conflict]
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab-exports.yaml#/ExportStart
+          example:
+            dataset: trades
+            venue: hyperliquid
+            instruments: ["hyperliquid:BTC"]
+            from: "2026-11-06T00:00:00.000Z"
+            to: "2026-11-06T00:15:00.000Z"
+            format: tsv_gz
+    responses:
+      "200":
+        description: Queued job or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/lab-exports.yaml#/ExportCreated
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                job: &exportJobExample
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  dataset: trades
+                  venue: hyperliquid
+                  instruments: ["hyperliquid:BTC"]
+                  from: "2026-11-06T00:00:00.000Z"
+                  to: "2026-11-06T00:15:00.000Z"
+                  format: tsv_gz
+                  status: queued
+                  estimatedBytes: "8192"
+                  bytes: null
+                  url: null
+                  urlExpiresAt: null
+                  errorCode: null
+                  createdAt: "2026-11-07T09:30:00.000Z"
+                  finishedAt: null
+export:
+  get:
+    operationId: getExport
+    summary: Read one export and request a short-lived download URL when ready.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: [export_expired, feature_unavailable]
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: Owner-scoped export status or refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/lab-exports.yaml#/ExportJobView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: *exportJobExample

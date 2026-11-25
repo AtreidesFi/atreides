@@ -1,0 +1,191 @@
+ReplayClientFrame:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required: ["t", "strategyVersionId", "from", "to", "feeOrigin", "latencyMs", "idempotencyKey"]
+      properties:
+        t: { "type": "string", "enum": ["open"] }
+        strategyVersionId: { "type": "string", "format": "uuid" }
+        from: { "type": "string", "format": "date-time" }
+        to: { "type": "string", "format": "date-time" }
+        feeOrigin: { "type": "string", "enum": ["algo", "manual"] }
+        latencyMs: { "type": ["integer", "null"], "minimum": 0, "maximum": 30000 }
+        idempotencyKey: { "type": "string" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "until"]
+      properties:
+        t: { "type": "string", "enum": ["advance"] }
+        until: { "type": "string", "format": "date-time" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "clientOrderId", "instrument", "side", "type", "tif", "px", "sz", "reduceOnly", "tp", "sl"]
+      properties:
+        t: { "type": "string", "enum": ["order"] }
+        clientOrderId: { "type": "string" }
+        instrument: { "type": "string" }
+        side: { "type": "string", "enum": ["buy", "sell"] }
+        type: { "type": "string", "enum": ["limit", "market"] }
+        tif: { "type": "string", "enum": ["gtc", "ioc", "post_only"] }
+        px: { "type": ["string", "null"], "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        sz: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        reduceOnly: { "type": "boolean" }
+        tp: { "type": ["string", "null"], "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        sl: { "type": ["string", "null"], "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "clientOrderId"]
+      properties:
+        t: { "type": "string", "enum": ["cancel"] }
+        clientOrderId: { "type": "string" }
+    - type: object
+      additionalProperties: false
+      required: ["t"]
+      properties:
+        t: { "type": "string", "enum": ["close"] }
+ReplayServerFrame:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required: ["t", "runId", "window", "caveats"]
+      properties:
+        t: { "type": "string", "enum": ["opened"] }
+        runId: { "type": "string", "format": "uuid" }
+        window:
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to"],
+            "properties":
+              {
+                "from": { "type": "string", "format": "date-time" },
+                "to": { "type": "string", "format": "date-time" },
+              },
+          }
+        caveats: { "type": "array", "items": { "type": "string" } }
+    - type: object
+      additionalProperties: false
+      required: ["t", "instrument", "closeAt", "o", "h", "l", "c", "v"]
+      properties:
+        t: { "type": "string", "enum": ["bar"] }
+        instrument: { "type": "string" }
+        closeAt: { "type": "string", "format": "date-time" }
+        o: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        h: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        l: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        c: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        v: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "instrument", "at", "px", "sz", "side"]
+      properties:
+        t: { "type": "string", "enum": ["trade"] }
+        instrument: { "type": "string" }
+        at: { "type": "string", "format": "date-time" }
+        px: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        sz: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        side: { "type": "string", "enum": ["buy", "sell"] }
+    - type: object
+      additionalProperties: false
+      required: ["t", "instrument", "at", "bids", "asks"]
+      properties:
+        t: { "type": "string", "enum": ["book"] }
+        instrument: { "type": "string" }
+        at: { "type": "string", "format": "date-time" }
+        bids:
+          {
+            "type": "array",
+            "items":
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" },
+              },
+          }
+        asks:
+          {
+            "type": "array",
+            "items":
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" },
+              },
+          }
+    - type: object
+      additionalProperties: false
+      required: ["t", "instrument", "at", "rate"]
+      properties:
+        t: { "type": "string", "enum": ["funding"] }
+        instrument: { "type": "string" }
+        at: { "type": "string", "format": "date-time" }
+        rate: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "clientOrderId", "state", "filled", "avgPx", "reason"]
+      properties:
+        t: { "type": "string", "enum": ["order_update"] }
+        clientOrderId: { "type": "string" }
+        state: { "type": "string", "enum": ["resting", "partially_filled", "filled", "cancelled", "rejected"] }
+        filled: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        avgPx: { "type": ["string", "null"], "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        reason: { "type": ["string", "null"] }
+    - type: object
+      additionalProperties: false
+      required: ["t", "clientOrderId", "at", "px", "sz", "liquidity", "venueFee", "ourFee"]
+      properties:
+        t: { "type": "string", "enum": ["fill"] }
+        clientOrderId: { "type": "string" }
+        at: { "type": "string", "format": "date-time" }
+        px: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        sz: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        liquidity: { "type": "string", "enum": ["maker", "taker"] }
+        venueFee: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        ourFee: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "at", "equity", "freeMargin", "positions"]
+      properties:
+        t: { "type": "string", "enum": ["account"] }
+        at: { "type": "string", "format": "date-time" }
+        equity: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        freeMargin: { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" }
+        positions:
+          {
+            "type": "array",
+            "items":
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["instrument", "size", "entryPx", "liquidationPx"],
+                "properties":
+                  {
+                    "instrument": { "type": "string" },
+                    "size": { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" },
+                    "entryPx": { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" },
+                    "liquidationPx":
+                      { "type": ["string", "null"], "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$" },
+                  },
+              },
+          }
+    - type: object
+      additionalProperties: false
+      required: ["t", "until"]
+      properties:
+        t: { "type": "string", "enum": ["step_done"] }
+        until: { "type": "string", "format": "date-time" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "resultId"]
+      properties:
+        t: { "type": "string", "enum": ["finished"] }
+        resultId: { "type": "string", "format": "uuid" }
+    - type: object
+      additionalProperties: false
+      required: ["t", "code", "message"]
+      properties:
+        t: { "type": "string", "enum": ["error"] }
+        code: { "type": "string" }
+        message: { "type": "string" }

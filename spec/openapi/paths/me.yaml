@@ -1,0 +1,185 @@
+# The signed-in user (03 §7.1). Owner 03.
+# Operations only, no handlers (ORC-F01). Schemas are in ../components/.
+me:
+  get:
+    operationId: getMe
+    summary: Read the signed-in user.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The user.
+        headers:
+          X-Request-Id: &a2
+            $ref: ../components/headers.yaml#/X-Request-Id
+          RateLimit-Limit: &a3
+            $ref: ../components/headers.yaml#/RateLimit-Limit
+          RateLimit-Remaining: &a4
+            $ref: ../components/headers.yaml#/RateLimit-Remaining
+          RateLimit-Reset: &a5
+            $ref: ../components/headers.yaml#/RateLimit-Reset
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/identity.yaml#/Me
+            example:
+              ok: true
+              data:
+                userId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                kind: user
+                createdAt: 2026-11-07T09:30:00.000Z
+                wallets:
+                  - &a1
+                    walletId: 01936f2e-7c3b-7a52-9c10-5b8d3e4f6a21
+                    address: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                    chain: evm
+                    verifiedAt: 2026-11-07T09:30:00.000Z
+                    isPayoutWallet: true
+                    signInAllowed: true
+                identities:
+                  - identityId: 01936f2e-7c3d-7e44-a1b3-6d5c4b3a2918
+                    provider: telegram
+                    handle: trader_one
+                    linkedAt: 2026-11-07T09:30:00.000Z
+                payoutWallet: *a1
+                secondFactor: off
+                features:
+                  screens.vaults: false
+                  assistant.ask: true
+                termsVersionRequired: null
+                termsAcceptedVersion: null
+meDelete:
+  post:
+    operationId: deleteAccount
+    summary: Delete the account.
+    description: Needs the typed confirmation, a fresh proof (a SIWE message over a `delete_account` nonce, or a Telegram login for an account without a wallet) and the second factor when it is on. Connections are revoked; sessions and keys end.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - siwe_invalid
+      - second_factor_required
+      - second_factor_invalid
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+      - $ref: ../components/headers.yaml#/SecondFactor
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/identity.yaml#/DeleteAccountRequest
+          example:
+            confirm: DELETE
+            proof:
+              kind: siwe
+              message: |-
+                app.example.com wants you to sign in with your Ethereum account:
+                0x71C7656EC7ab88b098defB751B7401B5f6d8976F
+
+                Sign in.
+
+                URI: https://app.example.com
+                Version: 1
+                Chain ID: 1
+                Nonce: k3Jd9Xw2LmQp7Rt5Vb8Nc1Za
+                Issued At: 2026-11-07T09:30:00.000Z
+              signature: "0xababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+    responses:
+      "200":
+        description: Deleted.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/Deleted
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                deletedAt: 2026-11-07T09:30:00.000Z
+meTerms:
+  post:
+    operationId: acceptTerms
+    summary: Accept the required Terms.
+    description:
+      Records that the signed-in user accepted `version`, with the instant and the client IP. Only the version
+      the operator requires (`termsVersionRequired` of `getMe`) is accepted. Accepting it twice returns the first answer.
+      Until it is accepted an opening order from any credential is refused `terms_not_accepted`; closes, cancels and
+      reads are not affected.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - invalid_request
+      - idempotency_conflict
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/identity.yaml#/TermsAcceptRequest
+          example:
+            version: "2026-11-18"
+    responses:
+      "200":
+        description: Accepted, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/TermsAccepted
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                termsAcceptedVersion: "2026-11-18"

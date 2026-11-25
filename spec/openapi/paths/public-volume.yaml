@@ -1,0 +1,121 @@
+# Public volume (03 §7.6; shapes 07 §7.1). Anonymous callers get 60 requests a minute per IP. Sources only: no handlers.
+daily:
+  get:
+    operationId: getPublicVolumeDay
+    summary: Read one UTC day of volume by venue.
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+    security: []
+    parameters:
+      - name: date
+        in: query
+        required: true
+        description: The UTC day.
+        schema:
+          $ref: ../components/reads.yaml#/UtcDay
+    responses:
+      "200":
+        description: The day.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/rewards.yaml#/PublicVolumeDay
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                day: 2026-11-06
+                complete: true
+                venues:
+                  - venue: hyperliquid
+                    reconciled: true
+                    volumeUsd: "1000000"
+                    takerVolumeUsd: "600000"
+                    makerVolumeUsd: "400000"
+                    feesUsd: "250"
+                    trades: 1200
+fills:
+  get:
+    operationId: listPublicFills
+    summary: List one venue's fills of a UTC day.
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+      - cursor_invalid
+    security: []
+    parameters:
+      - name: date
+        in: query
+        required: true
+        description: The UTC day.
+        schema:
+          $ref: ../components/reads.yaml#/UtcDay
+      - name: venue
+        in: query
+        required: true
+        description: The venue.
+        schema:
+          $ref: ../components/primitives.yaml#/VenueId
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of fills.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/rewards.yaml#/PublicFill
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - venue: hyperliquid
+                  venueFillId: "9981"
+                  txRef: null
+                  instrument: hyperliquid:BTC
+                  side: buy
+                  liquidity: taker
+                  notional:
+                    amount: "650"
+                    asset: usdc
+                  ourFee:
+                    amount: "0.0325"
+                    asset: usdc
+                  at: 2026-11-07T09:30:00.000Z
+              nextCursor: null

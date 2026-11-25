@@ -1,0 +1,537 @@
+# Sign-in and sessions (03 §4, §7.1). Owner 03.
+# Operations only, no handlers (ORC-F01). Schemas are in ../components/.
+nonce:
+  post:
+    operationId: issueNonce
+    summary: Get a single-use nonce for a signature.
+    description: The nonce is valid for one purpose, for five minutes and, when a session asked for it, only for that session. Every purpose but `sign_in` needs a session. For `api_key_grant` the answer also carries the `keyText` the new key will have, because the grant text names it.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: auth
+    x-idempotency: none
+    x-refusals:
+      - session_required
+    security: &a1
+      - {}
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/identity.yaml#/NonceRequest
+          example:
+            purpose: sign_in
+    responses:
+      "200":
+        description: The nonce, or a refusal.
+        headers:
+          X-Request-Id: &a2
+            $ref: ../components/headers.yaml#/X-Request-Id
+          RateLimit-Limit: &a3
+            $ref: ../components/headers.yaml#/RateLimit-Limit
+          RateLimit-Remaining: &a4
+            $ref: ../components/headers.yaml#/RateLimit-Remaining
+          RateLimit-Reset: &a5
+            $ref: ../components/headers.yaml#/RateLimit-Reset
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/Nonce
+                - &a6
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                nonce: k3Jd9Xw2LmQp7Rt5Vb8Nc1Za
+                expiresAt: 2026-11-07T09:35:00.000Z
+siwe:
+  post:
+    operationId: signInSiwe
+    summary: Sign in with an Ethereum wallet (SIWE).
+    description: Verifies an EIP-4361 message signed over a `sign_in` nonce. A known wallet signs its user in; an unknown wallet attaches to the signed-in user, or creates a user when there is no session and the invite rules allow it. The response can set the session cookie.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: auth
+    x-idempotency: none
+    x-refusals:
+      - siwe_invalid
+      - invite_required
+      - invite_invalid
+      - wallet_linked_elsewhere
+    security: *a1
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/identity.yaml#/SiweSignInRequest
+          example:
+            message: |-
+              app.example.com wants you to sign in with your Ethereum account:
+              0x71C7656EC7ab88b098defB751B7401B5f6d8976F
+
+              Sign in.
+
+              URI: https://app.example.com
+              Version: 1
+              Chain ID: 1
+              Nonce: k3Jd9Xw2LmQp7Rt5Vb8Nc1Za
+              Issued At: 2026-11-07T09:30:00.000Z
+            signature: "0xababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+            invite: FRIEND7
+    responses:
+      "200":
+        description: The signed-in user, or a refusal.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+          Set-Cookie:
+            description: "The session cookie `__Host-sid`: HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age=2592000."
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/SignedIn
+                - *a6
+            example:
+              ok: true
+              data:
+                user: &a8
+                  userId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  kind: user
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  wallets:
+                    - &a7
+                      walletId: 01936f2e-7c3b-7a52-9c10-5b8d3e4f6a21
+                      address: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                      chain: evm
+                      verifiedAt: 2026-11-07T09:30:00.000Z
+                      isPayoutWallet: true
+                      signInAllowed: true
+                  identities:
+                    - identityId: 01936f2e-7c3d-7e44-a1b3-6d5c4b3a2918
+                      provider: telegram
+                      handle: trader_one
+                      linkedAt: 2026-11-07T09:30:00.000Z
+                  payoutWallet: *a7
+                  secondFactor: off
+                  features:
+                    screens.vaults: false
+                    assistant.ask: true
+                  termsVersionRequired: null
+                  termsAcceptedVersion: null
+telegram:
+  post:
+    operationId: signInTelegram
+    summary: Sign in with Telegram.
+    description: Takes the Telegram login widget fields as received and checks their hash. Offered only while Telegram login is on. Attaches and creates exactly as `signInSiwe` does.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: auth
+    x-idempotency: none
+    x-refusals:
+      - telegram_auth_invalid
+      - invite_required
+      - invite_invalid
+      - identity_linked_elsewhere
+      - feature_unavailable
+    security: *a1
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/identity.yaml#/TelegramSignInRequest
+          example:
+            fields:
+              id: "123456789"
+              first_name: Ada
+              username: trader_one
+              auth_date: "1794043800"
+              hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    responses:
+      "200":
+        description: The signed-in user, or a refusal.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+          Set-Cookie:
+            description: The session cookie `__Host-sid`, as for `signInSiwe`.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/SignedIn
+                - *a6
+            example:
+              ok: true
+              data:
+                user: *a8
+discordStart:
+  get:
+    operationId: startDiscordSignIn
+    summary: "Start the Discord sign-in or link: redirect to Discord."
+    description: Answers 302 to Discord and sets the `__Host-oauth` cookie that binds the flow to this browser. Open it as a top-level navigation. `purpose=link` needs a session.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: auth
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+      - feature_unavailable
+    security: *a1
+    parameters:
+      - name: purpose
+        in: query
+        required: true
+        description: Sign in, or link Discord to the signed-in user.
+        schema:
+          type: string
+          enum:
+            - sign_in
+            - link
+      - name: invite
+        in: query
+        required: false
+        description: An invite code or a pasted invite link.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: ref
+        in: query
+        required: false
+        description: A referral code.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: returnTo
+        in: query
+        required: true
+        description: The path of the app to return to. Only a path is accepted.
+        schema:
+          type: string
+          pattern: ^/[A-Za-z0-9/_?=&.-]{0,200}$
+        example: /settings
+    responses:
+      "200":
+        description: A refusal.
+        headers: &a9
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema: *a6
+            example:
+              ok: false
+              code: feature_unavailable
+              message: Discord sign-in is not available yet.
+              retryable: false
+              requestId: 01936f2e-7c43-74aa-8719-cdbcab9a8f7e
+      "302":
+        description: Redirect to Discord.
+        headers:
+          Location:
+            description: The Discord authorize URL.
+            schema:
+              type: string
+          Set-Cookie:
+            description: "The cookie `__Host-oauth`: HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age=600."
+            schema:
+              type: string
+          X-Request-Id:
+            $ref: ../components/headers.yaml#/X-Request-Id
+discordCallback:
+  get:
+    operationId: finishDiscordSignIn
+    summary: "Finish the Discord sign-in or link: Discord returns here."
+    description: Answers 302 to the `returnTo` of the start, with `?signin=ok` or `?signin=<code>` where the code is `discord_auth_failed`, `invite_required`, `invite_invalid` or `identity_linked_elsewhere`. A redirect cannot carry a 503, so an unreachable Discord is `discord_auth_failed` too. When the state is unknown there is no return path, and the answer is the 200 refusal. Sets the session cookie on success and clears `__Host-oauth`. When the user declined, Discord sends `error` and no `code`.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: auth
+    x-idempotency: none
+    x-refusals:
+      - discord_auth_failed
+      - invite_required
+      - invite_invalid
+      - identity_linked_elsewhere
+    security: *a1
+    parameters:
+      - name: code
+        in: query
+        required: false
+        description: The authorization code. Absent when the user declined.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      - name: state
+        in: query
+        required: true
+        description: The state value the start sent to Discord.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 256
+      - name: error
+        in: query
+        required: false
+        description: Discord's error code, for example `access_denied`.
+        schema:
+          type: string
+          maxLength: 128
+      - name: error_description
+        in: query
+        required: false
+        description: Discord's error text.
+        schema:
+          type: string
+          maxLength: 512
+    responses:
+      "200":
+        description: "A refusal, only when the state is unknown, expired or not bound to this browser: there is then no return path to redirect to."
+        headers: *a9
+        content:
+          application/json:
+            schema: *a6
+            example:
+              ok: false
+              code: discord_auth_failed
+              message: "The Discord login could not be completed: state_unknown. Start again."
+              retryable: false
+              requestId: 01936f2e-7c43-74aa-8719-cdbcab9a8f7e
+      "302":
+        description: Redirect to the return path with `?signin=ok` or `?signin=<code>`.
+        headers:
+          Location:
+            description: The return path with the sign-in result.
+            schema:
+              type: string
+          Set-Cookie:
+            description: The session cookie `__Host-sid` on success, and an expired `__Host-oauth`.
+            schema:
+              type: string
+          X-Request-Id:
+            $ref: ../components/headers.yaml#/X-Request-Id
+logout:
+  post:
+    operationId: logout
+    summary: Sign out this session.
+    description: Revokes the calling session on the server and clears the cookie.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals: []
+    security: &a10
+      - session: []
+    responses:
+      "200":
+        description: Signed out.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+          Set-Cookie:
+            description: An expired `__Host-sid`.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data: &a11
+                  $ref: ../components/identity.yaml#/Empty
+            example:
+              ok: true
+              data: {}
+logoutAll:
+  post:
+    operationId: logoutAll
+    summary: Sign out every other session.
+    description: Revokes every session of the user except the caller's.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals: []
+    security: *a10
+    responses:
+      "200":
+        description: How many sessions were revoked.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/identity.yaml#/RevokedCount
+            example:
+              ok: true
+              data:
+                revoked: 2
+sessions:
+  get:
+    operationId: listSessions
+    summary: List the signed-in sessions of the user.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security: *a10
+    responses:
+      "200":
+        description: The live sessions; the caller's is marked `current`.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/identity.yaml#/SessionInfo
+            example:
+              ok: true
+              data:
+                - sessionId: 01936f2e-7c3e-7f15-b2c4-7e6d5c4b3a29
+                  method: siwe
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  lastSeenAt: 2026-11-07T09:30:00.000Z
+                  ip: 203.0.113.7
+                  userAgent: Mozilla/5.0
+                  current: true
+                - sessionId: 01936f2e-7c3f-7066-83d5-8f7e6d5c4b3a
+                  method: telegram
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  lastSeenAt: 2026-11-07T09:30:00.000Z
+                  ip: null
+                  userAgent: null
+                  current: false
+sessionRevoke:
+  post:
+    operationId: revokeSession
+    summary: Sign out one session.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - not_found
+    security: *a10
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+      - name: sessionId
+        in: path
+        required: true
+        description: The session to revoke.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: Revoked.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data: *a11
+                - *a6
+            example:
+              ok: true
+              data: {}

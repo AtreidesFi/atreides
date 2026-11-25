@@ -1,0 +1,354 @@
+status:
+  get:
+    operationId: getBinanceStatus
+    summary: Read the Binance phase and product gate states.
+    tags: [Venues]
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/binance.yaml#/Status
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                phase: BN0
+                products: { spot: closed, usdm: closed }
+                codesLive: { spot: false, usdm: false }
+                fastApiLive: false
+browserKey:
+  post:
+    operationId: registerBinanceBrowserKey
+    summary: Register public evidence for a Binance browser key.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals: [venue_closed, key_rights_refused, uid_linked_elsewhere, idempotency_conflict, feature_unavailable]
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/binance.yaml#/RegisterBrowserKey
+          example:
+            products: [spot]
+            publicKeyFingerprint: "0000000000000000000000000000000000000000000000000000000000000000"
+            uid: "123456"
+            positionMode: not_applicable
+            readback:
+              ipRestrict: false
+              enableReading: true
+              enableSpotAndMarginTrading: true
+              enableFutures: false
+              enableMargin: false
+              enableWithdrawals: false
+              enableInternalTransfer: false
+              permitsUniversalTransfer: false
+              enableVanillaOptions: false
+              enablePortfolioMarginTrading: false
+              enableFixApiTrade: false
+              enableFixReadOnly: false
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/binance.yaml#/BrowserKeyRegistered
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                venueAccountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                connectionState: browser_key_registered
+                countsForRewards: false
+deviceOrders:
+  post:
+    operationId: checkBinanceDeviceOrder
+    summary: Record an order before the device signs it.
+    tags: [Orders]
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: client_order_id
+    x-refusals:
+      [
+        venue_closed,
+        venue_reduce_only,
+        venue_paused,
+        kill_switch_active,
+        rate_limited_account,
+        fee_code_missing,
+        key_rights_refused,
+        agent_expired,
+        stale_price,
+        tick_size,
+        lot_size,
+        min_notional,
+        price_band,
+        limit_exceeded,
+        account_not_bound,
+        account_not_connected,
+        insufficient_margin,
+        instrument_halted,
+        idempotency_conflict,
+        unknown_outcome,
+        check_token_invalid,
+        feature_unavailable,
+        rate_limited,
+        key_expiring,
+      ]
+    x-forwards: true
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/binance.yaml#/DeviceOrder
+          example:
+            venueAccountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+            product: spot
+            clientOrderId: device-example
+            intent:
+              accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+              clientOrderId: device-example
+              instrumentId: binance:spot:BTCUSDT
+              side: buy
+              type: limit
+              price: "75000"
+              size: "0.01"
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/binance.yaml#/DeviceOrderCheck
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                venueClientOrderId: device-example
+                params: [[symbol, BTCUSDT]]
+                bandPx: "76000"
+                checkToken: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                validUntil: 1794544200000
+outcome:
+  post:
+    operationId: reportBinanceDeviceOrder
+    summary: Record the transport outcome reported by a device.
+    tags: [Orders]
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: target
+    x-refusals: [check_token_invalid, idempotency_conflict, feature_unavailable]
+    x-forwards: true
+    security:
+      - session: []
+    parameters:
+      - name: clientOrderId
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/ClientOrderId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/binance.yaml#/DeviceOrderOutcome
+          example:
+            checkToken: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            outcome: sent_unknown
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/binance.yaml#/DeviceOrderDisplay
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                state: unknown
+disconnect:
+  post:
+    operationId: disconnectBinance
+    summary: Disconnect the Binance account after a fresh passkey check.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals: [not_found, step_up_required, feature_unavailable]
+    security:
+      - session: []
+    parameters:
+      - name: venueAccountId
+        in: path
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/binance.yaml#/Disconnected
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                deleteOnBinanceUrl: https://www.binance.com/en/my/settings/api-management
+fastStart:
+  get:
+    operationId: startBinanceFastApi
+    summary: Start a session-bound Binance Fast API authorization.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals: [venue_closed, fast_api_slot_used, account_not_bound, invalid_request]
+    security: [{ session: [] }]
+    parameters:
+      - name: venueAccountId
+        in: query
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+      - name: purpose
+        in: query
+        required: true
+        schema: { type: string, enum: [trade, read] }
+      - name: products
+        in: query
+        schema: { type: string, maxLength: 9 }
+    responses:
+      "302":
+        description: Redirect to the approved Binance authorization page.
+        headers:
+          Location:
+            schema: { type: string, format: uri }
+fastFinish:
+  get:
+    operationId: finishBinanceFastApi
+    summary: Finish Binance authorization in its originating session.
+    tags: [Accounts]
+    x-owner: "06"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals: [venue_closed, state_invalid, grant_expired, venue_unreachable, feature_unavailable]
+    security: [{ session: [] }]
+    parameters:
+      - name: state
+        in: query
+        required: true
+        schema: { type: string, minLength: 22, maxLength: 22 }
+      - name: code
+        in: query
+        schema: { type: string, minLength: 1, maxLength: 2048 }
+      - name: error
+        in: query
+        schema: { type: string, maxLength: 128 }
+    responses:
+      "302":
+        description: Redirect to the connection grant without the OAuth code.
+        headers:
+          Location:
+            schema: { type: string, format: uri }
+fastGrant:
+  get:
+    operationId: getBinanceFastGrant
+    summary: Read the state of one Binance grant owned by the signed-in user.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals: [not_found]
+    security: [{ session: [] }]
+    parameters:
+      - name: grantId
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+    responses:
+      "200":
+        description: The grant's connection progress.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/binance.yaml#/FastGrant
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                state: authorizing
+                products: [spot]
+                credentialId: null
+                errorCode: null

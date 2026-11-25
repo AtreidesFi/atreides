@@ -1,0 +1,146 @@
+# Batch place and cancel (03 §7.5a, API-061). Owner 03; the gateway runs each item as an order of its own (05 §10b.3).
+place:
+  post:
+    operationId: placeOrdersBatch
+    summary: Place up to 20 orders in one call.
+    description: "Trade scope. Each item is an independent order: the answer is HTTP 200 with one result per item in request order, and an item refused does not stop the others. One `Idempotency-Key` replays the whole answer. The call draws one `order` token (`protect` when every item is reduce-only); every item still counts in the key's per-minute limit and in the venue budget. Items for one account go in the order given. A relay, a routed order, `routeId` or `strategyRunId` in any item refuses the whole batch `invalid_request` before anything is sent."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: header
+    x-refusals:
+      - invalid_request
+      - idempotency_conflict
+      - account_not_bound
+      - account_not_connected
+      - unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/batch.yaml#/BatchPlaceRequest
+          example:
+            orders:
+              - accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                clientOrderId: mm-000001
+                instrumentId: hyperliquid:BTC
+                side: buy
+                type: limit
+                price: "64990"
+                size: "0.01"
+              - accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                clientOrderId: mm-000002
+                instrumentId: hyperliquid:BTC
+                side: sell
+                type: limit
+                price: "65010"
+                size: "0.01"
+    responses:
+      "200":
+        description: One result per item, in request order, or a refusal of the whole call.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/batch.yaml#/BatchResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                results:
+                  - index: 0
+                    clientOrderId: mm-000001
+                    ok: false
+                    order: null
+                    refusal:
+                      code: price_band
+                      message: Price 64990 is outside the band around the mark.
+                      details: {}
+                  - index: 1
+                    clientOrderId: mm-000002
+                    ok: false
+                    order: null
+                    refusal:
+                      code: limit_exceeded
+                      message: The maxOrderNotional limit would be exceeded.
+                      details:
+                        limit: maxOrderNotional
+cancel:
+  post:
+    operationId: cancelOrdersBatch
+    summary: Cancel up to 20 orders in one call.
+    description: "Trade scope, rate class `protect`. Each item is a cancel of its own with the result of `cancelOrder` (idempotent by target). One `Idempotency-Key` replays the whole answer."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: protect
+    x-idempotency: header
+    x-refusals:
+      - invalid_request
+      - idempotency_conflict
+      - account_not_bound
+      - account_not_connected
+      - unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/batch.yaml#/BatchCancelRequest
+          example:
+            cancels:
+              - accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                clientOrderId: mm-000001
+    responses:
+      "200":
+        description: One result per item, in request order, or a refusal of the whole call.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/batch.yaml#/BatchResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                results:
+                  - index: 0
+                    clientOrderId: mm-000001
+                    ok: false
+                    order: null
+                    refusal:
+                      code: not_found
+                      message: The order was not found.
+                      details: {}

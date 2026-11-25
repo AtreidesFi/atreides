@@ -1,0 +1,56 @@
+# The stream upgrade (03 §7.8, §11). x-stream names the frame schemas and the channel patterns.
+stream:
+  get:
+    operationId: openStream
+    summary: Open the WebSocket stream.
+    description:
+      "Upgrades to a WebSocket whose JSON text frames are `StreamClientFrame` and `StreamServerFrame`. The server
+      sends `hello` first. Browsers authenticate with the session cookie and an allowed Origin; bots sign the upgrade
+      request; an anonymous socket may subscribe to public channels only. `user` needs read scope and `heartbeat` trade
+      scope. Close codes: 1000 normal; 1012 server restart (reconnect after `reconnectAfterMs` with `since`); 4001 not
+      authenticated; 4003 channel not readable by the principal; 4008 slow consumer (send buffer over 1 MiB, reconnect
+      with `since`); 4009 session or key revoked or expired (stop); 4029 over the stream rate class. Documented here and
+      served by the stream handler, not the registrar."
+    tags:
+      - Stream
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: stream
+    x-idempotency: none
+    x-refusals: []
+    x-stream:
+      clientFrame: StreamClientFrame
+      serverFrame: StreamServerFrame
+      channels:
+        - user
+        - venues
+        - research_cards
+        - book:{instrumentId}
+        - trades:{instrumentId}
+        - candles:{instrumentId}:{tf}
+        - mark:{instrumentId}
+    security:
+      - {}
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: since
+        in: query
+        required: false
+        description: Decimal `seq` of the `user` channel to resume after.
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+      - name: channels
+        in: query
+        required: false
+        description: Channels to subscribe to on connect, as a comma list.
+        schema:
+          type: array
+          items:
+            $ref: ../components/stream.yaml#/Channel
+        style: form
+        explode: false
+    responses:
+      "101":
+        description: "Switching Protocols: the socket is open. Frames follow the schemas named in `x-stream`."

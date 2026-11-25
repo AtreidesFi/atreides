@@ -1,0 +1,120 @@
+# Limits (03 §7.4; 02 `limits`).
+limits:
+  get:
+    operationId: listLimits
+    summary: List limit sets for the user, an account or a key.
+    tags:
+      - Accounts
+    x-owner: "02"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: scope
+        in: query
+        required: true
+        description: Whose limits.
+        schema:
+          type: string
+          enum:
+            - user
+            - key
+            - account
+      - name: id
+        in: query
+        required: false
+        description: The account or key id, for scope account or key.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/limits.yaml#/LimitSet
+                - &a1
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - &a2
+                  limitId: 01936f2e-7c3c-7d30-8f6b-4c1e7a8d9fa2
+                  scope: user
+                  subjectId: null
+                  version: 3
+                  venues: null
+                  classes: null
+                  instruments: null
+                  maxOrderNotional: "5000"
+                  dailyNotional: "50000"
+                  maxPositionNotional: null
+                  notionalAsset: usdc
+                  maxLeverage: 10
+                  maxOpenOrders: null
+                  reason: null
+                  createdBy: user
+                  createdAt: 2026-11-07T09:30:00.000Z
+  put:
+    operationId: setLimits
+    summary: Save limits for the user or an account as a new immutable version.
+    tags:
+      - Accounts
+    x-owner: "02"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - invalid_request
+      - idempotency_conflict
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/limits.yaml#/LimitUpdate
+          example:
+            scope: user
+            maxOrderNotional: "5000"
+            dailyNotional: "50000"
+            notionalAsset: usdc
+            maxLeverage: 10
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/limits.yaml#/LimitSet
+                - *a1
+            example:
+              ok: true
+              data: *a2

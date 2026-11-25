@@ -1,0 +1,48 @@
+spreads:
+  get:
+    operationId: getLabSpreads
+    summary: Read the latest fee-adjusted lab spreads.
+    description: The view includes only scans with fresh and licensed inputs. When connectedOnly is true, the caller must have a linked account at both venues.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-flag: lab.finder
+    x-refusals: [feature_unavailable]
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: kind
+        in: query
+        required: true
+        schema: { type: string, enum: [funding_spread, price_gap] }
+      - name: base
+        in: query
+        required: false
+        schema:
+          $ref: ../components/primitives.yaml#/AssetId
+      - name: connectedOnly
+        in: query
+        required: false
+        schema: { type: boolean }
+    responses:
+      "200":
+        description: Latest complete scan and its qualifying pairs.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/lab-spreads.yaml#/LabSpreadAnswer
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                scannedAt: "2026-11-07T09:30:00.000Z"
+                items: []

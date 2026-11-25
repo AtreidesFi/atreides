@@ -1,0 +1,111 @@
+ExportDataset:
+  type: string
+  enum: [trades, book_deltas, bars_1m, features_1m, funding]
+ExportStatus:
+  type: string
+  enum: [queued, running, done, failed, refused, expired]
+ExportBytes:
+  type: string
+  pattern: "^(0|[1-9][0-9]*)$"
+ExportStart:
+  type: object
+  additionalProperties: false
+  required: [dataset, venue, instruments, from, to, format]
+  properties:
+    dataset:
+      $ref: "#/ExportDataset"
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instruments:
+      type: array
+      items: { type: string, minLength: 3, maxLength: 512 }
+      minItems: 1
+      maxItems: 50
+      uniqueItems: true
+    from:
+      $ref: ./primitives.yaml#/Instant
+    to:
+      $ref: ./primitives.yaml#/Instant
+    format: { type: string, const: tsv_gz }
+ExportJobView:
+  type: object
+  required:
+    [
+      id,
+      dataset,
+      venue,
+      instruments,
+      from,
+      to,
+      format,
+      status,
+      estimatedBytes,
+      bytes,
+      url,
+      urlExpiresAt,
+      errorCode,
+      createdAt,
+      finishedAt,
+    ]
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    dataset:
+      $ref: "#/ExportDataset"
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instruments:
+      type: array
+      items: { type: string }
+    from:
+      $ref: ./primitives.yaml#/Instant
+    to:
+      $ref: ./primitives.yaml#/Instant
+    format: { type: string, const: tsv_gz }
+    status:
+      $ref: "#/ExportStatus"
+    estimatedBytes:
+      $ref: "#/ExportBytes"
+    bytes:
+      oneOf:
+        - $ref: "#/ExportBytes"
+        - type: "null"
+    url: { type: [string, "null"] }
+    urlExpiresAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    errorCode: { type: [string, "null"] }
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    finishedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+ExportQuotaView:
+  type: object
+  required: [periodMonth, allowanceBytes, reservedBytes, usedBytes, volume30d, nextStepVolume, nextStepAllowanceBytes]
+  properties:
+    periodMonth: { type: string, format: date }
+    allowanceBytes:
+      $ref: "#/ExportBytes"
+    reservedBytes:
+      $ref: "#/ExportBytes"
+    usedBytes:
+      $ref: "#/ExportBytes"
+    volume30d:
+      $ref: ./primitives.yaml#/DecStr
+    nextStepVolume:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    nextStepAllowanceBytes:
+      oneOf:
+        - $ref: "#/ExportBytes"
+        - type: "null"
+ExportCreated:
+  type: object
+  required: [job]
+  properties:
+    job:
+      $ref: "#/ExportJobView"

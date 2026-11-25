@@ -1,0 +1,131 @@
+# Safety notices (10 §11, §17.4). The bell list of the app and the chat DMs read the same notices.
+notices:
+  get:
+    operationId: listNotices
+    summary: List safety notices.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    x-service: true
+    x-mcp-tool:
+      name: my_notices
+      description: "List the user's safety notices: keys expiring, orders of unknown outcome, venue outages."
+    security:
+      - session: []
+      - apiKey: []
+      - service: []
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: Open notices only, or all.
+        schema:
+          type: string
+          enum:
+            - open
+            - all
+          default: open
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+                - nextCursor
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/assistant.yaml#/NoticeView
+                nextCursor:
+                  type:
+                    - string
+                    - "null"
+            example:
+              ok: true
+              data:
+                - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  kind: key_expiring
+                  venue: hyperliquid
+                  title: Your Hyperliquid key expires in 7 days
+                  body: Your Hyperliquid key (gateway) expires in 7 days, on 14 Nov.
+                  action: &a1
+                    label: Renew
+                    href: /connections
+                  status: open
+                  raisedAt: 2026-11-07T09:30:00.000Z
+                  resolvedAt: null
+              nextCursor: null
+ack:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: acknowledgeNotice
+    summary: Acknowledge a notice.
+    description: Hides the notice from the open list. A `key_*` notice cannot be acknowledged while its cause holds.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - state_conflict
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/NoticeView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                kind: key_expiring
+                venue: hyperliquid
+                title: Your Hyperliquid key expires in 7 days
+                body: Your Hyperliquid key (gateway) expires in 7 days, on 14 Nov.
+                action: *a1
+                status: acknowledged
+                raisedAt: 2026-11-07T09:30:00.000Z
+                resolvedAt: null

@@ -1,0 +1,199 @@
+# Wire schemas of the public routes owned by 15-security-ops.md §22.1, §22.4.
+IncidentReportInput:
+  type: object
+  additionalProperties: false
+  required:
+    - page
+    - action
+    - requestId
+    - errorCode
+    - httpStatus
+    - release
+    - message
+    - screenshot
+    - client
+  properties:
+    page:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: The route path.
+    action:
+      type: string
+      minLength: 1
+      maxLength: 120
+    requestId:
+      oneOf:
+        - type: string
+          description: The X-Request-Id of the failed call.
+        - type: "null"
+    errorCode:
+      oneOf:
+        - type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+          description: An ErrorCode or a client code.
+        - type: "null"
+    httpStatus:
+      oneOf:
+        - type: integer
+          minimum: 100
+          maximum: 599
+        - type: "null"
+    release:
+      type: string
+      pattern: ^[0-9a-f]{7,40}$
+      description: The sha of the web build.
+    message:
+      type: string
+      maxLength: 2000
+      description: Scrubbed again on the server.
+    screenshot:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - mime
+            - base64
+          properties:
+            mime:
+              type: string
+              enum:
+                - image/png
+                - image/webp
+            base64:
+              type: string
+              maxLength: 1500000
+              description: At most 1 MiB decoded.
+        - type: "null"
+    client:
+      type: object
+      additionalProperties: false
+      required:
+        - viewport
+        - uaFamily
+      properties:
+        viewport:
+          type: string
+          maxLength: 32
+        uaFamily:
+          type: string
+          maxLength: 64
+IncidentReportReceipt:
+  type: object
+  additionalProperties: false
+  required:
+    - reportId
+  properties:
+    reportId:
+      $ref: ../components/primitives.yaml#/Uuid
+SecurityStatus:
+  type: object
+  additionalProperties: false
+  required:
+    - enclaveImages
+    - policiesSha256
+    - custody
+    - changes
+    - bounty
+    - keyHolders
+  properties:
+    keyHolders:
+      description: Signing arrangements reported by the API. Use the returned values to distinguish canary, enclave and testnet evidence.
+      type: array
+      items:
+        type: string
+        enum:
+          - enclave
+          - host_signer_canary
+          - process_signer_testnet
+    enclaveImages:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - status
+          - pcr0
+          - pcr1
+          - pcr2
+          - policiesSha256
+          - sourceCommit
+          - liveAt
+        properties:
+          status:
+            type: string
+            enum:
+              - live
+              - draining
+          pcr0: &a1
+            type: string
+            pattern: ^[0-9a-f]{64,96}$
+          pcr1: *a1
+          pcr2: *a1
+          policiesSha256: *a1
+          sourceCommit:
+            type: string
+          liveAt:
+            $ref: ../components/primitives.yaml#/Instant
+    policiesSha256: *a1
+    custody:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - venue
+          - mode
+          - keyPlace
+          - ourKey
+          - whoMovesFunds
+          - whereTo
+          - revokeWithoutUs
+        properties:
+          venue:
+            type: string
+          mode:
+            type: string
+          keyPlace:
+            type: string
+          ourKey:
+            oneOf:
+              - type: string
+              - type: "null"
+          whoMovesFunds:
+            type: string
+          whereTo:
+            type: string
+          revokeWithoutUs:
+            type: string
+    changes:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - at
+          - action
+          - summary
+        properties:
+          at:
+            $ref: ../components/primitives.yaml#/Instant
+          action:
+            type: string
+            enum:
+              - kms_policy.change
+              - enclave_image.status
+              - egress_ip.change
+          summary:
+            type: string
+    bounty:
+      type: object
+      additionalProperties: false
+      required:
+        - scopeUrl
+        - contact
+      properties:
+        scopeUrl:
+          type: string
+        contact:
+          type: string

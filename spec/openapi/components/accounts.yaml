@@ -1,0 +1,91 @@
+# Venue accounts and linking with proof (03 §8, §9.1).
+LinkScheme:
+  description: How the owner wallet signed the link message.
+  type: string
+  enum:
+    - eip191
+    - eip712
+    - solana_ed25519
+    - cosmos_adr36
+    - stark
+    - ed25519_raw
+VenueAccountInfo:
+  type: object
+  description: A linked venue account with its connections.
+  required:
+    - accountId
+    - venue
+    - accountRef
+    - subAccountRef
+    - masterAccountId
+    - kind
+    - linkedBy
+    - linkedAt
+    - connections
+  properties:
+    accountId: &a1
+      $ref: ./primitives.yaml#/Uuid
+    venue: &a2
+      $ref: ./primitives.yaml#/VenueId
+    accountRef: &a3
+      type: string
+    subAccountRef:
+      type:
+        - string
+        - "null"
+    masterAccountId:
+      oneOf:
+        - *a1
+        - type: "null"
+    kind:
+      $ref: ./primitives.yaml#/AccountKind
+    linkedBy:
+      type: string
+      enum:
+        - siwe
+        - venue_signature
+        - cex_uid
+        - consent
+    linkedAt: &a4
+      $ref: ./primitives.yaml#/Instant
+    connections:
+      type: array
+      items:
+        $ref: ./connections.yaml#/Connection
+AccountLinkChallengeRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - venue
+    - accountRef
+  properties:
+    venue: *a2
+    accountRef: *a3
+AccountLinkChallenge:
+  type: object
+  required:
+    - message
+    - nonce
+    - expiresAt
+  properties:
+    message:
+      description: The text the owner wallet signs (purpose link_account).
+      type: string
+    nonce: *a3
+    expiresAt: *a4
+AccountLinkRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - venue
+    - accountRef
+    - message
+    - signature
+    - scheme
+  properties:
+    venue: *a2
+    accountRef: *a3
+    message: *a3
+    signature: *a3
+    scheme:
+      $ref: ./accounts.yaml#/LinkScheme

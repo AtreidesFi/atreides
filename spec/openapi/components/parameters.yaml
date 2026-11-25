@@ -1,0 +1,52 @@
+# Query parameters that many operations share (01 §5.12 rule 7; 03 §6.3). An operation references the one it uses and
+# adds its own others.
+Cursor:
+  name: cursor
+  in: query
+  required: false
+  description: >-
+    The `nextCursor` of the previous page of the same operation and filters. Opaque. A cursor from another list or
+    other filters is refused with `cursor_invalid`.
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 512
+    pattern: "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+Limit:
+  name: limit
+  in: query
+  required: false
+  description: The most rows to return.
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 500
+    default: 100
+From:
+  name: from
+  in: query
+  required: false
+  description: Only rows at or after this instant.
+  schema:
+    $ref: ./primitives.yaml#/Instant
+To:
+  name: to
+  in: query
+  required: false
+  description: Only rows up to this instant.
+  schema:
+    $ref: ./primitives.yaml#/Instant
+AccountId:
+  name: accountId
+  in: query
+  required: false
+  description: Only this venue account. A key bound to other accounts is refused with `account_not_bound`.
+  schema:
+    $ref: ./primitives.yaml#/Uuid
+Venue:
+  name: venue
+  in: query
+  required: false
+  description: Only this venue.
+  schema:
+    $ref: ./primitives.yaml#/VenueId

@@ -1,0 +1,408 @@
+# Market data and the market views of the assistant (03 §7.3, §11.4; 08 live protocol; 10 §3.3). Market payloads keep 08's timestamps as unix milliseconds and carry decimals as strings.
+UnixMs:
+  type: integer
+  minimum: 0
+  description: Milliseconds since the Unix epoch, as 08 spells market timestamps.
+  examples:
+    - 1794000000000
+CandleTimeframe:
+  type: string
+  enum:
+    - 1m
+    - 5m
+    - 15m
+    - 1h
+    - 4h
+    - 1d
+Candle:
+  type: object
+  description: One bar of 08's `Bar`.
+  required:
+    - t
+    - open
+    - high
+    - low
+    - close
+    - volume
+    - notional
+    - trades
+    - buyNotional
+    - sellNotional
+    - complete
+    - origin
+  properties:
+    t:
+      description: Open time of the bar.
+      $ref: ./markets.yaml#/UnixMs
+    open: &a1
+      $ref: ./primitives.yaml#/DecStr
+    high: *a1
+    low: *a1
+    close: *a1
+    volume: *a1
+    notional: *a1
+    trades: &a5
+      type: integer
+    buyNotional: *a1
+    sellNotional: *a1
+    complete:
+      type: boolean
+    origin:
+      description: "'ours' from our trades, 'venue' before our capture began, 'filled' a quiet bucket carried forward."
+      type: string
+      enum:
+        - ours
+        - venue
+        - filled
+BookLevel:
+  type: object
+  required:
+    - px
+    - sz
+  properties:
+    px: *a1
+    sz: *a1
+BookSnapshotJson:
+  type: object
+  description: The book as the capture holds it, best price first on each side.
+  required:
+    - instrumentId
+    - bids
+    - asks
+    - at
+  properties:
+    instrumentId:
+      $ref: ./venues.yaml#/InstrumentId
+    bids:
+      type: array
+      items:
+        $ref: ./markets.yaml#/BookLevel
+    asks:
+      type: array
+      items:
+        $ref: ./markets.yaml#/BookLevel
+    at:
+      $ref: ./markets.yaml#/UnixMs
+TradePrint:
+  type: object
+  required:
+    - ts
+    - id
+    - px
+    - sz
+    - side
+  properties:
+    ts:
+      $ref: ./markets.yaml#/UnixMs
+    id: &a8
+      type: string
+    px: *a1
+    sz: *a1
+    side:
+      type: string
+      enum:
+        - buy
+        - sell
+        - unknown
+FundingPoint:
+  type: object
+  description: One settled funding payment rate (08 `md.funding`).
+  required:
+    - settledAt
+    - rate
+    - intervalHours
+  properties:
+    settledAt:
+      $ref: ./markets.yaml#/UnixMs
+    rate:
+      description: The settled rate, a fraction of notional.
+      $ref: ./primitives.yaml#/DecStr
+    intervalHours:
+      type:
+        - number
+        - "null"
+Age:
+  type: object
+  description: How old a figure is.
+  required:
+    - at
+    - ageMs
+    - daysAgo
+  properties:
+    at: &a7
+      $ref: ./primitives.yaml#/Instant
+    ageMs:
+      type: integer
+      minimum: 0
+    daysAgo: *a1
+FeeSplit:
+  type: object
+  description: The venue's fee and ours, for the caller's tier.
+  required:
+    - venue
+    - ours
+    - ourRateBps
+    - basis
+  properties:
+    venue: &a2
+      $ref: ./primitives.yaml#/MoneyJson
+    ours: *a2
+    ourRateBps: *a1
+    basis:
+      type: string
+      enum:
+        - builder_fee
+        - broker_share
+        - referral
+        - none
+MarketSnapshotRow:
+  type: object
+  required:
+    - instrument
+    - venue
+    - state
+    - mark
+    - mid
+    - spreadBps
+    - depth10bp
+    - depth25bp
+    - fundingRate
+    - fundingIntervalH
+    - fundingApr
+    - volume24h
+    - openInterest
+    - takerFee
+    - makerFee
+    - age
+  properties:
+    instrument:
+      $ref: ./venues.yaml#/InstrumentId
+    venue: &a4
+      $ref: ./primitives.yaml#/VenueId
+    state:
+      $ref: ./primitives.yaml#/VenueState
+    mark:
+      oneOf:
+        - *a1
+        - type: "null"
+    mid:
+      oneOf:
+        - *a1
+        - type: "null"
+    spreadBps:
+      oneOf:
+        - *a1
+        - type: "null"
+    depth10bp:
+      oneOf:
+        - *a2
+        - type: "null"
+    depth25bp:
+      oneOf:
+        - *a2
+        - type: "null"
+    fundingRate:
+      oneOf:
+        - *a1
+        - type: "null"
+    fundingIntervalH:
+      type:
+        - integer
+        - "null"
+    fundingApr:
+      oneOf:
+        - *a1
+        - type: "null"
+    volume24h:
+      oneOf:
+        - *a2
+        - type: "null"
+    openInterest:
+      oneOf:
+        - *a2
+        - type: "null"
+    takerFee:
+      oneOf:
+        - &a3
+          $ref: ./markets.yaml#/FeeSplit
+        - type: "null"
+    makerFee:
+      oneOf:
+        - *a3
+        - type: "null"
+    age: &a6
+      $ref: ./markets.yaml#/Age
+MarketSnapshot:
+  type: object
+  description:
+    One row per venue that lists the asset. Fees are for the caller's tier with origin `ticket`, the base tier
+    when anonymous.
+  required:
+    - rows
+  properties:
+    rows:
+      type: array
+      items:
+        $ref: ./markets.yaml#/MarketSnapshotRow
+FundingCompareVenue:
+  type: object
+  required:
+    - venue
+    - instrument
+    - aprMean
+    - aprLast
+    - intervals
+  properties:
+    venue: *a4
+    instrument:
+      $ref: ./venues.yaml#/InstrumentId
+    aprMean:
+      oneOf:
+        - *a1
+        - type: "null"
+    aprLast:
+      oneOf:
+        - *a1
+        - type: "null"
+    intervals: *a5
+FundingPair:
+  type: object
+  required:
+    - long
+    - short
+    - aprSpread
+    - consistentIntervals
+  properties:
+    long: *a4
+    short: *a4
+    aprSpread: *a1
+    consistentIntervals: *a5
+FundingCompare:
+  type: object
+  required:
+    - venues
+    - pairs
+  properties:
+    venues:
+      type: array
+      items:
+        $ref: ./markets.yaml#/FundingCompareVenue
+    pairs:
+      type: array
+      items:
+        $ref: ./markets.yaml#/FundingPair
+PriceGapRow:
+  type: object
+  required:
+    - venue
+    - instrument
+    - mid
+    - gapBpsToBest
+    - age
+  properties:
+    venue: *a4
+    instrument:
+      $ref: ./venues.yaml#/InstrumentId
+    mid:
+      oneOf:
+        - *a1
+        - type: "null"
+    gapBpsToBest:
+      oneOf:
+        - *a1
+        - type: "null"
+    age: *a6
+PriceGaps:
+  type: object
+  description: Gaps net of each venue's all-in fee for the caller's tier (the base tier when anonymous).
+  required:
+    - rows
+    - allInBest
+  properties:
+    rows:
+      type: array
+      items:
+        $ref: ./markets.yaml#/PriceGapRow
+    allInBest:
+      type: object
+      required:
+        - buy
+        - sell
+      properties:
+        buy:
+          oneOf:
+            - *a4
+            - type: "null"
+        sell:
+          oneOf:
+            - *a4
+            - type: "null"
+CoverageRow:
+  type: object
+  required:
+    - venue
+    - instrument
+    - kind
+    - from
+    - to
+    - holes
+  properties:
+    venue: *a4
+    instrument:
+      oneOf:
+        - $ref: ./venues.yaml#/InstrumentId
+        - type: "null"
+    kind:
+      type: string
+      enum:
+        - trades
+        - book
+        - bars
+        - funding
+    from:
+      oneOf:
+        - *a7
+        - type: "null"
+    to:
+      oneOf:
+        - *a7
+        - type: "null"
+    holes: *a5
+Coverage:
+  type: object
+  description: What history we hold (08 `md.coverage_by_market`).
+  required:
+    - rows
+  properties:
+    rows:
+      type: array
+      items:
+        $ref: ./markets.yaml#/CoverageRow
+HelpEntry:
+  type: object
+  required:
+    - id
+    - screen
+    - title
+    - text
+    - liveValues
+  properties:
+    id: *a8
+    screen:
+      description: A screen id of the web app.
+      type: string
+    title: *a8
+    text: *a8
+    liveValues:
+      type: object
+      additionalProperties: *a8
+ProductHelp:
+  type: object
+  description: Only entries whose flags are on for the caller, with live values filled.
+  required:
+    - entries
+  properties:
+    entries:
+      type: array
+      items:
+        $ref: ./markets.yaml#/HelpEntry

@@ -1,0 +1,58 @@
+# In-app incident reports (15 §22.1, §22.4). Anonymous or signed in.
+reports:
+  post:
+    operationId: createIncidentReport
+    summary: Send an incident report from the app.
+    description: Public, with the session when there is one. 20 reports per 10 minutes per user or IP. The message is
+      scrubbed of secrets again on the server.
+    tags:
+      - Security
+    x-owner: "15"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+      - rate_limited
+    security:
+      - {}
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/security-ops.yaml#/IncidentReportInput
+          example:
+            page: /trade
+            action: place_order
+            requestId: null
+            errorCode: venue_paused
+            httpStatus: null
+            release: c750d2e
+            message: The order button did nothing after the venue came back.
+            screenshot: null
+            client:
+              viewport: 1440x900
+              uaFamily: Firefox
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/security-ops.yaml#/IncidentReportReceipt
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                reportId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80

@@ -1,0 +1,599 @@
+# Connections and the connect lifecycle (03 §7.4, §9). Per-venue routes of §9.4 are the venue files' (paths/connections-<venue>.yaml, paths/venues-<venue>.yaml).
+connections:
+  get:
+    operationId: listConnections
+    summary: List connections.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security: &a2
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: mode
+        in: query
+        required: false
+        description: Only this mode.
+        schema:
+          $ref: ../components/primitives.yaml#/Mode
+      - name: state
+        in: query
+        required: false
+        description: Only this state.
+        schema:
+          $ref: ../components/connections.yaml#/ConnectionState
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/connections.yaml#/Connection
+                - &a1
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - &a3
+                  connectionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  accountId: 01936f2e-7c3b-7c2f-9e5a-3b0d6f7c8e91
+                  venue: hyperliquid
+                  mode: gateway
+                  keyPlace: signer
+                  state: active
+                  stateReason: null
+                  key: &a12
+                    credentialId: 01936f2e-7c3c-7d30-8f6b-4c1e7a8d9fa2
+                    kind: agent
+                    custody: venue_trade_only
+                    holder: signer
+                    publicRef: "0x1111111111111111111111111111111111111111"
+                    can:
+                      - Place and cancel orders
+                    cannot:
+                      - Withdraw funds
+                    ipBinding: not_readable
+                    expiresAt: 2026-11-07T09:30:05.000Z
+                    renewFrom: 2026-11-07T09:30:00.000Z
+                    checkedAt: 2026-11-07T09:30:00.000Z
+                    sealedTo:
+                      kind: process_signer
+                  approval: &a13
+                    state: approved
+                    cap: "0.001"
+                    readAt: 2026-11-07T09:30:00.000Z
+                  custodyNote: The key can trade; it cannot withdraw. Funds move only with your own wallet signature.
+                  venueExtra: &a14 {}
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  updatedAt: 2026-11-07T09:30:00.000Z
+sealingKey:
+  get:
+    operationId: getSealingKey
+    summary: Read the process signer's sealing key for a key made in the browser.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+      - unavailable
+    security: &a4
+      - session: []
+    parameters:
+      - name: venue
+        in: query
+        required: true
+        description: The venue.
+        schema:
+          $ref: ../components/primitives.yaml#/VenueId
+      - name: holder
+        in: query
+        required: true
+        description: The key holder.
+        schema:
+          type: string
+          enum:
+            - signer
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/SealingKey
+                - *a1
+            example:
+              ok: true
+              data:
+                sealingKeyId: sk-1
+                publicKey: AAEC
+                validUntil: 2026-11-07T09:30:05.000Z
+connection:
+  parameters:
+    - &a10
+      name: connectionId
+      in: path
+      required: true
+      description: A connection id.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getConnection
+    summary: Read one connection.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    security: *a2
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/Connection
+                - *a1
+            example:
+              ok: true
+              data: *a3
+offer:
+  parameters:
+    - name: venue
+      in: path
+      required: true
+      description: A venue id.
+      schema:
+        $ref: ../components/primitives.yaml#/VenueId
+  post:
+    operationId: createConnectOffer
+    summary: "Start connecting a venue account: get the steps the user signs."
+    description:
+      The venue file defines the `options` it accepts. A venue and mode are offered only once their gate unit is
+      open for the caller.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - venue_closed
+      - feature_unavailable
+      - account_not_connected
+      - signer_mismatch
+      - account_underfunded
+      - key_limit_reached
+      - agent_slots_full
+      - builder_limit_reached
+      - key_rights_refused
+      - venue_unreachable
+      - unavailable
+    x-gate-unit: true
+    security: *a4
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/connections.yaml#/ConnectOfferRequest
+          example:
+            accountRef: "0x1111111111111111111111111111111111111111"
+            mode: gateway
+            keyPlace: signer
+            kind: approve_key
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/ConnectOffer
+                - *a1
+            example:
+              ok: true
+              data: &a5
+                offerId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                venue: hyperliquid
+                kind: approve_key
+                mode: gateway
+                keyPlace: signer
+                accountRef: "0x1111111111111111111111111111111111111111"
+                status: open
+                steps: &a7
+                  - id: approve-agent
+                    signer: main_wallet
+                    scheme: eip712
+                    chainId: 42161
+                    payload: '{"type":"approveAgent"}'
+                    summary:
+                      feeCap: "0.001"
+                      ourRates:
+                        perp: "0.0001"
+                      keyCan:
+                        - Place and cancel orders
+                      keyCannot:
+                        - Withdraw funds
+                      expiresAt: 2026-11-07T09:30:05.000Z
+                      slotsUsed: 1
+                      slotsMax: 3
+                key: &a8
+                  publicRef: "0x1111111111111111111111111111111111111111"
+                  attestation: null
+                sealTo: null
+                validUntil: 2026-11-07T09:30:05.000Z
+                venueExtra: &a9 {}
+offerById:
+  parameters:
+    - &a6
+      name: offerId
+      in: path
+      required: true
+      description: A connect offer id.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getConnectOffer
+    summary: Read an offer, for venues that complete asynchronously.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - offer_expired
+    security: *a4
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/ConnectOffer
+                - *a1
+            example:
+              ok: true
+              data: *a5
+complete:
+  parameters:
+    - *a6
+  post:
+    operationId: completeConnectOffer
+    summary: Complete an offer with the user's signatures.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - offer_expired
+      - signer_mismatch
+      - key_rights_refused
+      - key_expiring
+      - fee_approval_missing
+      - venue_rejected
+      - account_underfunded
+      - agent_slots_full
+      - builder_limit_reached
+      - unknown_outcome
+      - attestation_failed
+      - invalid_request
+      - idempotency_conflict
+    security: *a4
+    parameters:
+      - &a11
+        $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/connections.yaml#/ConnectComplete
+          example:
+            signatures:
+              - stepId: approve-agent
+                signature:
+                  "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdc\
+                  dcdcdcdcdcdcdcdcdcdcdcdcd"
+                signer: "0x1111111111111111111111111111111111111111"
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/ConnectResult
+                - *a1
+            example:
+              ok: true
+              data:
+                offer:
+                  offerId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  venue: hyperliquid
+                  kind: approve_key
+                  mode: gateway
+                  keyPlace: signer
+                  accountRef: "0x1111111111111111111111111111111111111111"
+                  status: completed
+                  steps: *a7
+                  key: *a8
+                  sealTo: null
+                  validUntil: 2026-11-07T09:30:05.000Z
+                  venueExtra: *a9
+                connection: *a3
+renew:
+  parameters:
+    - *a10
+  post:
+    operationId: renewConnection
+    summary: Start renewing a connection's key.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - connection_state
+      - idempotency_conflict
+    security: *a4
+    parameters:
+      - *a11
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/connections.yaml#/RenewRequest
+          example: {}
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/ConnectOffer
+                - *a1
+            example:
+              ok: true
+              data:
+                offerId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                venue: hyperliquid
+                kind: renew_key
+                mode: gateway
+                keyPlace: signer
+                accountRef: "0x1111111111111111111111111111111111111111"
+                status: open
+                steps: *a7
+                key: *a8
+                sealTo: null
+                validUntil: 2026-11-07T09:30:05.000Z
+                venueExtra: *a9
+recheck:
+  parameters:
+    - *a10
+  post:
+    operationId: recheckConnection
+    summary: Read the key's rights, IP binding and expiry back from the venue.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - unavailable
+      - idempotency_conflict
+    security: *a4
+    parameters:
+      - *a11
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/Connection
+                - *a1
+            example:
+              ok: true
+              data: *a3
+revoke:
+  parameters:
+    - *a10
+  post:
+    operationId: revokeConnectionKey
+    summary: Start the user-signed venue revoke, where the venue has one.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - feature_unavailable
+      - idempotency_conflict
+    security: *a4
+    parameters:
+      - *a11
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/ConnectOffer
+                - *a1
+            example:
+              ok: true
+              data:
+                offerId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                venue: hyperliquid
+                kind: revoke_key
+                mode: gateway
+                keyPlace: signer
+                accountRef: "0x1111111111111111111111111111111111111111"
+                status: open
+                steps: *a7
+                key: *a8
+                sealTo: null
+                validUntil: 2026-11-07T09:30:05.000Z
+                venueExtra: *a9
+disconnect:
+  parameters:
+    - *a10
+  post:
+    operationId: disconnectConnection
+    summary: "Disconnect: destroy our copy of the key at once and say where the venue lists it."
+    description: "A brake: never frozen by a venue state."
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - idempotency_conflict
+    security: *a4
+    parameters:
+      - *a11
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/connections.yaml#/DisconnectRequest
+          example:
+            cancelOpenOrders: true
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/DisconnectResult
+                - *a1
+            example:
+              ok: true
+              data:
+                connection:
+                  connectionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  accountId: 01936f2e-7c3b-7c2f-9e5a-3b0d6f7c8e91
+                  venue: hyperliquid
+                  mode: gateway
+                  keyPlace: signer
+                  state: revoked
+                  stateReason: null
+                  key: *a12
+                  approval: *a13
+                  custodyNote: The key can trade; it cannot withdraw. Funds move only with your own wallet signature.
+                  venueExtra: *a14
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  updatedAt: 2026-11-07T09:30:00.000Z
+                venueKeyPage: https://app.hyperliquid.xyz/API
+                venueStillLists: null

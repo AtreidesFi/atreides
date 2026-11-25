@@ -1,0 +1,57 @@
+# Public custody and enclave status (15 §22.4). The TOTP read stays 03's GET /v1/security.
+status:
+  get:
+    operationId: getSecurityStatus
+    summary: Read the live enclave images, custody inventory and recent policy changes.
+    tags:
+      - Security
+    x-owner: "15"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - unavailable
+    security: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/security-ops.yaml#/SecurityStatus
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                enclaveImages:
+                  - status: live
+                    pcr0: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    pcr1: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    pcr2: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    policiesSha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+                    sourceCommit: c750d2e
+                    liveAt: 2026-11-07T09:30:00.000Z
+                policiesSha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+                custody:
+                  - venue: hyperliquid
+                    mode: gateway
+                    keyPlace: enclave
+                    ourKey: agent key (trade only)
+                    whoMovesFunds: "Only you: the agent key cannot withdraw."
+                    whereTo: Your own wallet
+                    revokeWithoutUs: Revoke the agent in Hyperliquid.
+                changes: []
+                keyHolders:
+                  - enclave
+                bounty:
+                  scopeUrl: https://example.com/security
+                  contact: security@example.com

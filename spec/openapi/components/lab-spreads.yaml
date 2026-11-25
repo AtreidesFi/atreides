@@ -1,0 +1,44 @@
+LabSpreadLeg:
+  type: object
+  required: [venue, instrument, value, depthUsd]
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instrument: { type: string }
+    value:
+      $ref: ./primitives.yaml#/DecStr
+    depthUsd:
+      $ref: ./primitives.yaml#/DecStr
+LabSpread:
+  type: object
+  required: [kind, base, legs, grossSpread, costRoundTrip, netSpread, holdDays, persistedScans, flagged, onYourVenues]
+  properties:
+    kind: { type: string, enum: [funding_spread, price_gap] }
+    base:
+      $ref: ./primitives.yaml#/AssetId
+    legs:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items:
+        $ref: "#/LabSpreadLeg"
+    grossSpread:
+      $ref: ./primitives.yaml#/DecStr
+    costRoundTrip:
+      $ref: ./primitives.yaml#/DecStr
+    netSpread:
+      $ref: ./primitives.yaml#/DecStr
+    holdDays: { type: integer, minimum: 1, maximum: 30 }
+    persistedScans: { type: integer, minimum: 0, maximum: 65535 }
+    flagged: { type: boolean }
+    onYourVenues: { type: boolean }
+LabSpreadAnswer:
+  type: object
+  required: [scannedAt, items]
+  properties:
+    scannedAt:
+      $ref: ./primitives.yaml#/Instant
+    items:
+      type: array
+      items:
+        $ref: "#/LabSpread"

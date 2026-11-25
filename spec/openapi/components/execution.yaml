@@ -1,0 +1,74 @@
+# Leverage, margin mode and isolated margin: the wire schemas of 03 §7.5a (API-062). Requests are closed (01 §5.12 rule 1);
+# a body field that is not listed, such as a `destination`, is `invalid_request`.
+MarginMode:
+  type: string
+  enum:
+    - cross
+    - isolated
+SetLeverageRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - instrumentId
+    - leverage
+  properties:
+    instrumentId:
+      type: string
+    leverage:
+      description: A whole number above 0 that the venue and the key's `max_leverage` allow.
+      type: integer
+      exclusiveMinimum: 0
+      maximum: 1000
+    marginMode:
+      $ref: ./execution.yaml#/MarginMode
+SetMarginModeRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - instrumentId
+    - marginMode
+  properties:
+    instrumentId:
+      type: string
+    marginMode:
+      $ref: ./execution.yaml#/MarginMode
+AdjustIsolatedMarginRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - instrumentId
+    - amountUsd
+  properties:
+    instrumentId:
+      type: string
+    amountUsd:
+      description: Positive adds margin, negative removes it. Only the caller's own isolated position is changed.
+      $ref: ./primitives.yaml#/DecStr
+LeverageResult:
+  type: object
+  required:
+    - instrumentId
+    - leverage
+    - marginMode
+  properties:
+    instrumentId:
+      type: string
+    leverage:
+      type: integer
+    marginMode:
+      $ref: ./execution.yaml#/MarginMode
+MarginResult:
+  type: object
+  required:
+    - instrumentId
+    - marginUsd
+    - liquidationPx
+  properties:
+    instrumentId:
+      type: string
+    marginUsd:
+      $ref: ./primitives.yaml#/DecStr
+    liquidationPx:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"

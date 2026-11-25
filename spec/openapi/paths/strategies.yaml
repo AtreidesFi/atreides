@@ -1,0 +1,890 @@
+# Strategies and versions (09 §6.2). Runs, lab runs, follows and exports have their own path files (LB-T16, LB-T18).
+strategies:
+  get:
+    operationId: listStrategies
+    summary: List the user's strategies.
+    description: >-
+      Reads move no money. The caller sees only their own strategies. Lowest number first.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: Active strategies, or archived ones.
+        schema:
+          $ref: ../components/lab.yaml#/StrategyStatus
+          default: active
+      - name: kind
+        in: query
+        required: false
+        description: Only this kind.
+        schema:
+          $ref: ../components/lab.yaml#/StrategyKind
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+                - nextCursor
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/lab.yaml#/StrategyView
+                nextCursor:
+                  type:
+                    - string
+                    - "null"
+            example:
+              ok: true
+              data:
+                - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  number: 7
+                  name: BTC mean reversion
+                  kind: bot
+                  status: active
+                  originDoor: api
+                  derivedFromCardSlug: null
+                  currentVersion: 1
+                  currentVersionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  killSwitch: false
+                  killReason: null
+                  headline: null
+                  runs:
+                    live: 0
+                    paper: 0
+                    lost: 0
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  updatedAt: 2026-11-07T09:30:00.000Z
+                  archivedAt: null
+              nextCursor: null
+  post:
+    operationId: createStrategy
+    summary: Save a new strategy and its first version.
+    description: >-
+      Validates the whole spec; every problem comes back in one `lab_spec_invalid`. Lab objects move no money, so a `read` key may write them; an MCP token is refused `scope_missing`.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - lab_spec_invalid
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/CreateStrategyRequest
+          example:
+            name: BTC mean reversion
+            spec:
+              schema: strategy/v1
+              kind: bot
+              timeframe: 1s
+              quoteAsset: usdc
+              signals: {}
+              limits:
+                budget: "10000"
+                maxOpenPositions: 3
+                cooldownBars: 0
+                maxTradesPerDay: 500
+              universe:
+                kind: list
+                instruments:
+                  - hyperliquid:BTC
+              feeds:
+                - bars
+                - book
+              marginMode: cross
+            originDoor: api
+            note: first draft
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/StrategyCreated
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                strategy:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  number: 7
+                  name: BTC mean reversion
+                  kind: bot
+                  status: active
+                  originDoor: api
+                  derivedFromCardSlug: null
+                  currentVersion: 1
+                  currentVersionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  killSwitch: false
+                  killReason: null
+                  headline: null
+                  runs:
+                    live: 0
+                    paper: 0
+                    lost: 0
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  updatedAt: 2026-11-07T09:30:00.000Z
+                  archivedAt: null
+                version:
+                  id: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  specSha256: "abababababababababababababababababababababababababababababababab"
+                  engineVersion: strategy-engine/1
+                  parentVersionId: null
+                  createdVia: api
+                  note: first draft
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  spec:
+                    schema: strategy/v1
+                    kind: bot
+                    timeframe: 1s
+                    quoteAsset: usdc
+                    signals: {}
+                    limits:
+                      budget: "10000"
+                      maxOpenPositions: 3
+                      cooldownBars: 0
+                      maxTradesPerDay: 500
+                    universe:
+                      kind: list
+                      instruments:
+                        - hyperliquid:BTC
+                    feeds:
+                      - bars
+                      - book
+                    marginMode: cross
+strategy:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getStrategy
+    summary: Read one strategy with its current version, runs and follows.
+    description: >-
+      Reads move no money. The caller sees only their own strategies.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/StrategyDetail
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                strategy:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  number: 7
+                  name: BTC mean reversion
+                  kind: bot
+                  status: active
+                  originDoor: api
+                  derivedFromCardSlug: null
+                  currentVersion: 1
+                  currentVersionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  killSwitch: false
+                  killReason: null
+                  headline: null
+                  runs:
+                    live: 0
+                    paper: 0
+                    lost: 0
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  updatedAt: 2026-11-07T09:30:00.000Z
+                  archivedAt: null
+                currentVersion:
+                  id: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  specSha256: "abababababababababababababababababababababababababababababababab"
+                  engineVersion: strategy-engine/1
+                  parentVersionId: null
+                  createdVia: api
+                  note: first draft
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  spec:
+                    schema: strategy/v1
+                    kind: bot
+                    timeframe: 1s
+                    quoteAsset: usdc
+                    signals: {}
+                    limits:
+                      budget: "10000"
+                      maxOpenPositions: 3
+                      cooldownBars: 0
+                      maxTradesPerDay: 500
+                    universe:
+                      kind: list
+                      instruments:
+                        - hyperliquid:BTC
+                    feeds:
+                      - bars
+                      - book
+                    marginMode: cross
+                labRuns: []
+                runs: []
+                follows: []
+  patch:
+    operationId: updateStrategy
+    summary: Rename or archive a strategy.
+    description: >-
+      Archiving is refused while a run is live or paused. Lab objects move no money, so a `read` key may write them; an MCP token is refused `scope_missing`.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - strategy_has_live_runs
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/UpdateStrategyRequest
+          example:
+            name: BTC mean reversion v2
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/StrategyView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                number: 7
+                name: BTC mean reversion
+                kind: bot
+                status: active
+                originDoor: api
+                derivedFromCardSlug: null
+                currentVersion: 1
+                currentVersionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                killSwitch: false
+                killReason: null
+                headline: null
+                runs:
+                  live: 0
+                  paper: 0
+                  lost: 0
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:00.000Z
+                archivedAt: null
+versions:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: listStrategyVersions
+    summary: List the versions of a strategy.
+    description: >-
+      Reads move no money. The caller sees only their own strategies. Newest version first; the specs are left out.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+                - nextCursor
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/lab.yaml#/VersionView
+                nextCursor:
+                  type:
+                    - string
+                    - "null"
+            example:
+              ok: true
+              data:
+                - id: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  specSha256: "abababababababababababababababababababababababababababababababab"
+                  engineVersion: strategy-engine/1
+                  parentVersionId: null
+                  createdVia: api
+                  note: first draft
+                  createdAt: 2026-11-07T09:30:00.000Z
+              nextCursor: null
+  post:
+    operationId: createStrategyVersion
+    summary: Save a new version of a strategy.
+    description: >-
+      The same canonical spec as an existing version returns that version with `created: false`. Lab objects move no money, so a `read` key may write them; an MCP token is refused `scope_missing`.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - lab_spec_invalid
+      - strategy_archived
+      - strategy_kind_mismatch
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/CreateVersionRequest
+          example:
+            spec:
+              schema: strategy/v1
+              kind: bot
+              timeframe: 1s
+              quoteAsset: usdc
+              signals: {}
+              limits:
+                budget: "10000"
+                maxOpenPositions: 3
+                cooldownBars: 0
+                maxTradesPerDay: 500
+              universe:
+                kind: list
+                instruments:
+                  - hyperliquid:BTC
+              feeds:
+                - bars
+                - book
+              marginMode: cross
+            note: wider budget
+            makeCurrent: true
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/VersionCreated
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                version:
+                  id: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  version: 1
+                  specSha256: "abababababababababababababababababababababababababababababababab"
+                  engineVersion: strategy-engine/1
+                  parentVersionId: null
+                  createdVia: api
+                  note: first draft
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  spec:
+                    schema: strategy/v1
+                    kind: bot
+                    timeframe: 1s
+                    quoteAsset: usdc
+                    signals: {}
+                    limits:
+                      budget: "10000"
+                      maxOpenPositions: 3
+                      cooldownBars: 0
+                      maxTradesPerDay: 500
+                    universe:
+                      kind: list
+                      instruments:
+                        - hyperliquid:BTC
+                    feeds:
+                      - bars
+                      - book
+                    marginMode: cross
+                created: true
+current:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: setStrategyCurrent
+    summary: Make one of the strategy's versions current.
+    description: >-
+      A version of another strategy is `not_found`. Lab objects move no money, so a `read` key may write them; an MCP token is refused `scope_missing`.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - strategy_archived
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/SetCurrentRequest
+          example:
+            versionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/StrategyView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                number: 7
+                name: BTC mean reversion
+                kind: bot
+                status: active
+                originDoor: api
+                derivedFromCardSlug: null
+                currentVersion: 1
+                currentVersionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                killSwitch: false
+                killReason: null
+                headline: null
+                runs:
+                  live: 0
+                  paper: 0
+                  lost: 0
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:00.000Z
+                archivedAt: null
+kill:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: killStrategy
+    summary: Kill a strategy, pausing its live runs and stopping its paper runs.
+    description: >-
+      Always succeeds and is idempotent. A session or an API key with `read` may kill; a `trade` key only when bound to the account of one of the strategy's gateway runs (`account_not_bound` otherwise).
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/KillRequest
+          example:
+            reason: market stress
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/KillResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                strategy:
+                  id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  number: 7
+                  name: BTC mean reversion
+                  kind: bot
+                  status: active
+                  originDoor: api
+                  derivedFromCardSlug: null
+                  currentVersion: 1
+                  currentVersionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                  killSwitch: false
+                  killReason: null
+                  headline: null
+                  runs:
+                    live: 0
+                    paper: 0
+                    lost: 0
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  updatedAt: 2026-11-07T09:30:00.000Z
+                  archivedAt: null
+                runs: []
+unkill:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: unkillStrategy
+    summary: Clear a strategy's kill switch.
+    description: >-
+      Paused runs stay paused; the user resumes each. Lab objects move no money, so a `read` key may write them; an MCP token is refused `scope_missing`.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - feature_unavailable
+      - idempotency_conflict
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/EmptyRequest
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/StrategyView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                number: 7
+                name: BTC mean reversion
+                kind: bot
+                status: active
+                originDoor: api
+                derivedFromCardSlug: null
+                currentVersion: 1
+                currentVersionId: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                killSwitch: false
+                killReason: null
+                headline: null
+                runs:
+                  live: 0
+                  paper: 0
+                  lost: 0
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:00.000Z
+                archivedAt: null
+strategy-version:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getStrategyVersion
+    summary: Read one version with its spec.
+    description: >-
+      Reads move no money. The caller sees only their own strategies.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/VersionView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3b-7b1e-8d4f-2a9c5e6b7d81
+                strategyId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                version: 1
+                specSha256: "abababababababababababababababababababababababababababababababab"
+                engineVersion: strategy-engine/1
+                parentVersionId: null
+                createdVia: api
+                note: first draft
+                createdAt: 2026-11-07T09:30:00.000Z
+                spec:
+                  schema: strategy/v1
+                  kind: bot
+                  timeframe: 1s
+                  quoteAsset: usdc
+                  signals: {}
+                  limits:
+                    budget: "10000"
+                    maxOpenPositions: 3
+                    cooldownBars: 0
+                    maxTradesPerDay: 500
+                  universe:
+                    kind: list
+                    instruments:
+                      - hyperliquid:BTC
+                  feeds:
+                    - bars
+                    - book
+                  marginMode: cross
+validate:
+  post:
+    operationId: validateStrategySpec
+    summary: Check a spec without saving it.
+    description: >-
+      A validation answer, not a refusal: `data.ok` tells whether the spec is accepted. With a `window`, the answer adds the data coverage and a runtime estimate. Writes nothing.
+    tags:
+      - Lab
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: strategies.enabled
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/lab.yaml#/ValidateSpecRequest
+          example:
+            spec:
+              schema: strategy/v1
+              kind: bot
+              timeframe: 1s
+              quoteAsset: usdc
+              signals: {}
+              limits:
+                budget: "10000"
+                maxOpenPositions: 3
+                cooldownBars: 0
+                maxTradesPerDay: 500
+              universe:
+                kind: list
+                instruments:
+                  - hyperliquid:BTC
+              feeds:
+                - bars
+                - book
+              marginMode: cross
+            forLive: false
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/lab.yaml#/SpecValidation
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                ok: true
+                sha256: "abababababababababababababababababababababababababababababababab"
+                coverage: []
+                estimate:
+                  variants: 1
+                  bars: 0
+                  estimateMs: 0

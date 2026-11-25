@@ -1,0 +1,118 @@
+# Wire schemas of /v1/preferences (13b-web-other-pages.md §9.1, §9.9). The document is at most 16 KiB canonical JSON;
+# the API drops unknown keys on write and upgrades an older schema version on read.
+UiPreferences:
+  type: object
+  additionalProperties: false
+  required:
+    - schema
+    - density
+    - motion
+    - numberGrouping
+    - timeDisplay
+    - hideBalancesBelowUsd
+    - largeOrderPct
+    - browserKeyIdleMinutes
+    - landing
+    - dismissedHints
+  properties:
+    schema:
+      const: 2
+    density:
+      type: string
+      enum:
+        - compact
+        - comfortable
+    motion:
+      type: string
+      enum:
+        - system
+        - reduced
+        - full
+    numberGrouping:
+      type: string
+      enum:
+        - comma
+        - space
+        - none
+    timeDisplay:
+      type: string
+      enum:
+        - local
+        - utc
+    hideBalancesBelowUsd:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/DecStr
+          description: 0 <= v <= 1000; null shows all.
+        - type: "null"
+    largeOrderPct:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/DecStr
+          description: 0 < v <= 100; null turns the warning off.
+        - type: "null"
+    browserKeyIdleMinutes:
+      type: integer
+      minimum: 1
+      maximum: 480
+    defaultOrderSize:
+      type: object
+      additionalProperties: false
+      description: The default order size in USD per instrument class; 0 < v <= 1000000. Absent until the user sets it.
+      required:
+        - perp
+        - spot
+      properties:
+        perp:
+          $ref: ../components/primitives.yaml#/DecStr
+        spot:
+          $ref: ../components/primitives.yaml#/DecStr
+    landing:
+      type: string
+      enum:
+        - overview
+        - trade
+        - api_bots
+    smartRouting:
+      type: string
+      enum:
+        - "on"
+        - "off"
+      description: >-
+        Smart routing for the terminal's ticket (05 section 10b.11); "on" when absent. It never affects a close, a cancel, a
+        reduce-only order, or an order that asks for the router by name.
+    dismissedHints:
+      type: array
+      items:
+        type: string
+        pattern: ^[a-z][a-z0-9_.]{2,63}$
+      maxItems: 100
+PreferencesDoc:
+  type: object
+  additionalProperties: false
+  required:
+    - version
+    - prefs
+    - updatedAt
+  properties:
+    version:
+      type: integer
+      minimum: 0
+      description: 0 when nothing is stored and the defaults are returned.
+    prefs:
+      $ref: "#/UiPreferences"
+    updatedAt:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/Instant
+        - type: "null"
+PutPreferences:
+  type: object
+  additionalProperties: false
+  required:
+    - version
+    - prefs
+  properties:
+    version:
+      type: integer
+      minimum: 0
+      description: The version the client read; the write succeeds only while it is current.
+    prefs:
+      $ref: "#/UiPreferences"

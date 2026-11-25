@@ -1,0 +1,1580 @@
+# Route wire contract, 03 §8. Public prices and money use exact decimal strings.
+RouteRequestBody:
+  type: "object"
+  additionalProperties: false
+  required: ["group", "side", "type"]
+  properties:
+    group:
+      type: "string"
+      minLength: 1
+      maxLength: 128
+    side:
+      type: "string"
+      enum: ["buy", "sell"]
+    type:
+      type: "string"
+      enum: ["limit", "market"]
+    tif:
+      type: "string"
+      enum: ["ioc", "gtc", "post_only"]
+    price:
+      $ref: "./primitives.yaml#/DecStr"
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    notional:
+      $ref: "./primitives.yaml#/DecStr"
+    reduceOnly:
+      type: "boolean"
+    maxSlippageBps:
+      type: "integer"
+      minimum: 1
+      maximum: 2000
+    tp:
+      $ref: "./orders.yaml#/TriggerJson"
+    sl:
+      $ref: "./orders.yaml#/TriggerJson"
+    fundingHorizonHours:
+      type: "integer"
+      minimum: 1
+      maximum: 8760
+    split:
+      type: "boolean"
+    maxLegs:
+      type: "integer"
+      minimum: 1
+      maximum: 8
+    crossClass:
+      type: "boolean"
+    allowPartial:
+      type: "boolean"
+    onShortfall:
+      type: "string"
+      enum: ["keep", "unwind"]
+      description: "Defaults to keep. Unwind is available for server-routed perpetual openings without attached triggers when allowPartial is false."
+    accountIds:
+      type: "array"
+      items:
+        $ref: "./primitives.yaml#/Uuid"
+      minItems: 1
+      maxItems: 100
+      uniqueItems: true
+    mode:
+      type: "string"
+      enum: ["gateway", "direct"]
+  oneOf:
+    [
+      { "required": ["size"], "not": { "required": ["notional"] } },
+      { "required": ["notional"], "not": { "required": ["size"] } },
+    ]
+  allOf:
+    # Reject limits without a price and size, or with market-only fields.
+    - not:
+        properties:
+          type: { const: "limit" }
+        anyOf:
+          - not: { required: ["price", "size"] }
+          - required: ["notional"]
+          - required: ["maxSlippageBps"]
+    # Reject market orders with a price or an explicit time in force other than IOC.
+    - not:
+        properties:
+          type: { const: "market" }
+        anyOf:
+          - required: ["price"]
+          - required: ["tif"]
+            properties:
+              tif: { not: { const: "ioc" } }
+RoutedOrder:
+  type: "object"
+  additionalProperties: false
+  required: ["group", "side", "type", "route", "clientRouteId"]
+  properties:
+    group:
+      type: "string"
+      minLength: 1
+      maxLength: 128
+    side:
+      type: "string"
+      enum: ["buy", "sell"]
+    type:
+      type: "string"
+      enum: ["limit", "market"]
+    tif:
+      type: "string"
+      enum: ["ioc", "gtc", "post_only"]
+    price:
+      $ref: "./primitives.yaml#/DecStr"
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    notional:
+      $ref: "./primitives.yaml#/DecStr"
+    reduceOnly:
+      type: "boolean"
+    maxSlippageBps:
+      type: "integer"
+      minimum: 1
+      maximum: 2000
+    tp:
+      $ref: "./orders.yaml#/TriggerJson"
+    sl:
+      $ref: "./orders.yaml#/TriggerJson"
+    fundingHorizonHours:
+      type: "integer"
+      minimum: 1
+      maximum: 8760
+    split:
+      type: "boolean"
+    maxLegs:
+      type: "integer"
+      minimum: 1
+      maximum: 8
+    crossClass:
+      type: "boolean"
+    allowPartial:
+      type: "boolean"
+    onShortfall:
+      type: "string"
+      enum: ["keep", "unwind"]
+      description: "Defaults to keep. Unwind requests a separate protective close after all available execution waves."
+    accountIds:
+      type: "array"
+      items:
+        $ref: "./primitives.yaml#/Uuid"
+      minItems: 1
+      maxItems: 100
+      uniqueItems: true
+    mode:
+      type: "string"
+      enum: ["gateway", "direct"]
+    route:
+      const: "best"
+    clientRouteId:
+      $ref: "./primitives.yaml#/ClientOrderId"
+    quoteId:
+      type: "string"
+      minLength: 1
+      maxLength: 16384
+    replan:
+      type: "integer"
+      minimum: 1
+      maximum: 2
+  oneOf:
+    [
+      { "required": ["size"], "not": { "required": ["notional"] } },
+      { "required": ["notional"], "not": { "required": ["size"] } },
+    ]
+  allOf:
+    # Reject limits without a price and size, or with market-only fields.
+    - not:
+        properties:
+          type: { const: "limit" }
+        anyOf:
+          - not: { required: ["price", "size"] }
+          - required: ["notional"]
+          - required: ["maxSlippageBps"]
+    # Reject market orders with a price or an explicit time in force other than IOC.
+    - not:
+        properties:
+          type: { const: "market" }
+        anyOf:
+          - required: ["price"]
+          - required: ["tif"]
+            properties:
+              tif: { not: { const: "ioc" } }
+RouteQuoteRequest:
+  type: "object"
+  additionalProperties: false
+  properties:
+    group:
+      type: "string"
+      minLength: 1
+      maxLength: 128
+    side:
+      type: "string"
+      enum: ["buy", "sell"]
+    type:
+      type: "string"
+      enum: ["limit", "market"]
+    tif:
+      type: "string"
+      enum: ["ioc", "gtc", "post_only"]
+    price:
+      $ref: "./primitives.yaml#/DecStr"
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    notional:
+      $ref: "./primitives.yaml#/DecStr"
+    reduceOnly:
+      type: "boolean"
+    maxSlippageBps:
+      type: "integer"
+      minimum: 1
+      maximum: 2000
+    tp:
+      $ref: "./orders.yaml#/TriggerJson"
+    sl:
+      $ref: "./orders.yaml#/TriggerJson"
+    fundingHorizonHours:
+      type: "integer"
+      minimum: 1
+      maximum: 8760
+    split:
+      type: "boolean"
+    maxLegs:
+      type: "integer"
+      minimum: 1
+      maximum: 8
+    crossClass:
+      type: "boolean"
+    allowPartial:
+      type: "boolean"
+    accountIds:
+      type: "array"
+      items:
+        $ref: "./primitives.yaml#/Uuid"
+      minItems: 1
+      maxItems: 100
+      uniqueItems: true
+    mode:
+      type: "string"
+      enum: ["gateway", "direct"]
+    routeId:
+      $ref: "./primitives.yaml#/Uuid"
+  oneOf:
+    [
+      { "$ref": "#/RouteRequestBody" },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["routeId"],
+        "properties": { "routeId": { "$ref": "./primitives.yaml#/Uuid" } },
+      },
+    ]
+RouteState:
+  type: "string"
+  enum: ["planned", "sending", "working", "done", "partial", "failed", "cancelled"]
+RouteDropReason:
+  type: "string"
+  enum:
+    [
+      "stale_book",
+      "unit_not_open",
+      "market_closed",
+      "fee_not_approved",
+      "no_capacity",
+      "below_minimum",
+      "depeg",
+      "cost_unknown",
+      "no_ioc",
+      "kill_switch",
+      "class_not_selected",
+      "no_fill_id",
+      "venue_congested",
+    ]
+RouteVenueFeeEvidence:
+  type: "object"
+  additionalProperties: false
+  required: ["source", "observedAt", "maker", "taker"]
+  properties:
+    source:
+      type: "string"
+      enum: ["account", "public_table"]
+    observedAt:
+      oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+    maker:
+      $ref: "./primitives.yaml#/DecStr"
+    taker:
+      $ref: "./primitives.yaml#/DecStr"
+RouteLatency:
+  type: "object"
+  additionalProperties: false
+  required: ["ackP50Ms", "venueDelayMs", "volatilityBps1s", "driftBps", "driftUsd"]
+  properties:
+    ackP50Ms:
+      oneOf: [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+    venueDelayMs:
+      type: "integer"
+      minimum: 0
+    volatilityBps1s:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    driftBps:
+      $ref: "./primitives.yaml#/DecStr"
+    driftUsd:
+      $ref: "./primitives.yaml#/DecStr"
+RoutePlanLeg:
+  type: "object"
+  additionalProperties: false
+  required:
+    [
+      "legNo",
+      "accountId",
+      "venue",
+      "instrumentId",
+      "cls",
+      "exposure",
+      "keyPlace",
+      "tif",
+      "size",
+      "limitPrice",
+      "baseSize",
+      "expectedPrice",
+      "allInPrice",
+      "notionalUsd",
+      "venueRate",
+      "ourRate",
+      "venueFeeUsd",
+      "ourFeeUsd",
+      "gasUsd",
+      "fundingUsd",
+      "fundingKnown",
+      "leverageAssumed",
+    ]
+  properties:
+    venueFeeEvidence:
+      oneOf: [{ "$ref": "#/RouteVenueFeeEvidence" }, { "type": "null" }]
+    latency:
+      $ref: "#/RouteLatency"
+    legNo:
+      type: "integer"
+      minimum: 1
+    accountId:
+      $ref: "./primitives.yaml#/Uuid"
+    venue:
+      $ref: "./primitives.yaml#/VenueId"
+    instrumentId:
+      type: "string"
+    cls:
+      $ref: "./primitives.yaml#/InstrumentClass"
+    exposure:
+      type: "string"
+      enum: ["perp", "spot"]
+    keyPlace:
+      $ref: "./primitives.yaml#/KeyPlace"
+    tif:
+      type: "string"
+      enum: ["ioc", "fok", "gtc", "post_only"]
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    limitPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    baseSize:
+      $ref: "./primitives.yaml#/DecStr"
+    expectedPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    allInPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    notionalUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    venueRate:
+      $ref: "./primitives.yaml#/DecStr"
+    ourRate:
+      $ref: "./primitives.yaml#/DecStr"
+    venueFeeUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    ourFeeUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    gasUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    gasCostKnown:
+      type: "boolean"
+    quoteReference:
+      type: "object"
+      additionalProperties: false
+      required: ["asset", "usdPerUnit", "state", "observedAt"]
+      properties:
+        asset:
+          type: "string"
+        usdPerUnit:
+          $ref: "./primitives.yaml#/DecStr"
+        state:
+          type: "string"
+          enum: ["fresh", "stale", "unconfigured"]
+        observedAt:
+          oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+    fundingUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    fundingKnown:
+      type: "boolean"
+    fundingSettlements:
+      oneOf: [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+    nextFundingAt:
+      oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+    leverageAssumed:
+      type: "boolean"
+RouteCandidateJson:
+  type: "object"
+  additionalProperties: false
+  required:
+    ["accountId", "venue", "instrumentId", "cls", "dropped", "alone", "fundingRateNow", "depthBase", "capacityBase"]
+  properties:
+    venueFeeEvidence:
+      oneOf: [{ "$ref": "#/RouteVenueFeeEvidence" }, { "type": "null" }]
+    executionHealth:
+      type: "object"
+      additionalProperties: false
+      required: ["sampled", "rejected", "budget"]
+      properties:
+        sampled:
+          type: "integer"
+          minimum: 0
+        rejected:
+          type: "integer"
+          minimum: 0
+        budget:
+          oneOf:
+            - type: "null"
+            - type: "object"
+              additionalProperties: false
+              required: ["available", "observedAt"]
+              properties:
+                available:
+                  type: "integer"
+                  minimum: 0
+                observedAt:
+                  $ref: "./primitives.yaml#/Instant"
+    accountId:
+      $ref: "./primitives.yaml#/Uuid"
+    venue:
+      $ref: "./primitives.yaml#/VenueId"
+    instrumentId:
+      type: "string"
+    cls:
+      $ref: "./primitives.yaml#/InstrumentClass"
+    dropped:
+      oneOf:
+        [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties":
+              {
+                "reason": { "$ref": "#/RouteDropReason" },
+                "detail": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+              },
+          },
+          { "type": "null" },
+        ]
+    alone:
+      oneOf:
+        [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["baseSize", "allInPrice", "allInUsd"],
+            "properties":
+              {
+                "baseSize": { "$ref": "./primitives.yaml#/DecStr" },
+                "allInPrice": { "$ref": "./primitives.yaml#/DecStr" },
+                "allInUsd": { "$ref": "./primitives.yaml#/DecStr" },
+              },
+          },
+          { "type": "null" },
+        ]
+    fundingRateNow:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    depthBase:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    capacityBase:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    bandCentre:
+      description: >-
+        What the opening band is centred on: the venue mark (fresh), or the book mid when the mark was silent but the
+        book is fresh and its spread is within the band. Null on a close or when no band was built.
+      oneOf: [{ "type": "string", "enum": ["mark", "book_mid"] }, { "type": "null" }]
+    markAgeMs:
+      description: Age of the venue mark when the route was planned, in milliseconds; null when the venue gave none.
+      oneOf: [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+SplitDecision:
+  type: "object"
+  additionalProperties: false
+  required: ["chosen", "reason", "considered", "maxVenues", "splitMarginBps"]
+  properties:
+    chosen:
+      type: "string"
+      enum: ["single", "split"]
+    reason:
+      type: "string"
+      enum:
+        [
+          "split_clears_threshold",
+          "below_threshold",
+          "only_way_to_cover",
+          "single_only",
+          "split_off",
+          "max_venues",
+          "reduce_only",
+          "no_close_book",
+          "margin_unavailable",
+          "test_share_cap",
+        ]
+    maxVenues:
+      type: "integer"
+      minimum: 1
+      maximum: 8
+    splitMarginBps:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    considered:
+      oneOf:
+        - type: "object"
+          additionalProperties: false
+          required: ["legs", "exitCostBps", "fundingDeltaBps", "fragmentationBps", "thresholdBps"]
+          properties:
+            legs:
+              type: "integer"
+              minimum: 2
+              maximum: 8
+            exitCostBps:
+              $ref: "./primitives.yaml#/DecStr"
+            fundingDeltaBps:
+              oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+            fragmentationBps:
+              $ref: "./primitives.yaml#/DecStr"
+            thresholdBps:
+              $ref: "./primitives.yaml#/DecStr"
+        - type: "null"
+RoutePlan:
+  type: "object"
+  additionalProperties: false
+  required:
+    [
+      "execution",
+      "legs",
+      "coveredSize",
+      "uncoveredSize",
+      "dust",
+      "worstPrice",
+      "arrivalPrice",
+      "totals",
+      "bestSingle",
+      "savingBps",
+      "savingUsd",
+      "unconstrained",
+      "candidates",
+      "planSha256",
+    ]
+  properties:
+    splitDecision:
+      oneOf: [{ "$ref": "#/SplitDecision" }, { "type": "null" }]
+    execution:
+      type: "string"
+      enum: ["server", "client"]
+    legs:
+      type: "array"
+      items:
+        $ref: "#/RoutePlanLeg"
+    coveredSize:
+      $ref: "./primitives.yaml#/DecStr"
+    uncoveredSize:
+      $ref: "./primitives.yaml#/DecStr"
+    dust:
+      $ref: "./primitives.yaml#/DecStr"
+    worstPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    arrivalPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    totals:
+      type: "object"
+      additionalProperties: false
+      required: ["notionalUsd", "venueFeeUsd", "ourFeeUsd", "gasUsd", "fundingUsd", "allInUsd", "allInPrice"]
+      properties:
+        notionalUsd:
+          $ref: "./primitives.yaml#/DecStr"
+        venueFeeUsd:
+          $ref: "./primitives.yaml#/DecStr"
+        ourFeeUsd:
+          $ref: "./primitives.yaml#/DecStr"
+        gasUsd:
+          $ref: "./primitives.yaml#/DecStr"
+        fundingUsd:
+          $ref: "./primitives.yaml#/DecStr"
+        allInUsd:
+          $ref: "./primitives.yaml#/DecStr"
+        allInPrice:
+          $ref: "./primitives.yaml#/DecStr"
+    bestSingle:
+      oneOf:
+        [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["accountId", "venue", "instrumentId", "allInUsd", "allInPrice"],
+            "properties":
+              {
+                "accountId": { "$ref": "./primitives.yaml#/Uuid" },
+                "venue": { "$ref": "./primitives.yaml#/VenueId" },
+                "instrumentId": { "type": "string" },
+                "allInUsd": { "$ref": "./primitives.yaml#/DecStr" },
+                "allInPrice": { "$ref": "./primitives.yaml#/DecStr" },
+              },
+          },
+          { "type": "null" },
+        ]
+    savingBps:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    savingUsd:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    unconstrained:
+      oneOf:
+        [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["savingBps", "accountId", "venue", "moreUsd"],
+            "properties":
+              {
+                "savingBps": { "$ref": "./primitives.yaml#/DecStr" },
+                "accountId": { "$ref": "./primitives.yaml#/Uuid" },
+                "venue": { "$ref": "./primitives.yaml#/VenueId" },
+                "moreUsd": { "$ref": "./primitives.yaml#/DecStr" },
+              },
+          },
+          { "type": "null" },
+        ]
+    candidates:
+      type: "array"
+      items:
+        $ref: "#/RouteCandidateJson"
+    planSha256:
+      type: "string"
+      pattern: "^[0-9a-f]{64}$"
+RouteQuote:
+  type: "object"
+  additionalProperties: false
+  required: ["plan", "quoteId", "validUntil"]
+  properties:
+    plan:
+      $ref: "#/RoutePlan"
+    quoteId:
+      type: "string"
+      minLength: 1
+    validUntil:
+      $ref: "./primitives.yaml#/Instant"
+RouteLeg:
+  type: "object"
+  additionalProperties: false
+  required:
+    [
+      "replan",
+      "legNo",
+      "accountId",
+      "venue",
+      "instrumentId",
+      "cls",
+      "keyPlace",
+      "place",
+      "clientOrderId",
+      "venueClientId",
+      "tif",
+      "size",
+      "limitPrice",
+      "baseSize",
+      "ourRate",
+      "state",
+      "placeBefore",
+      "filledSize",
+      "filledBaseSize",
+      "avgPrice",
+      "resultCode",
+      "order",
+    ]
+  properties:
+    venueFeeEvidence:
+      oneOf: [{ "$ref": "#/RouteVenueFeeEvidence" }, { "type": "null" }]
+    latency:
+      $ref: "#/RouteLatency"
+    replan:
+      type: "integer"
+      minimum: 0
+    legNo:
+      type: "integer"
+      minimum: 1
+    accountId:
+      $ref: "./primitives.yaml#/Uuid"
+    venue:
+      $ref: "./primitives.yaml#/VenueId"
+    instrumentId:
+      type: "string"
+    cls:
+      $ref: "./primitives.yaml#/InstrumentClass"
+    keyPlace:
+      $ref: "./primitives.yaml#/KeyPlace"
+    place:
+      type: "string"
+      enum: ["gateway", "intent", "relay", "wallet", "direct"]
+    clientOrderId:
+      $ref: "./primitives.yaml#/ClientOrderId"
+    venueClientId:
+      type: "string"
+    tif:
+      type: "string"
+      enum: ["ioc", "fok", "gtc", "post_only"]
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    limitPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    baseSize:
+      $ref: "./primitives.yaml#/DecStr"
+    ourRate:
+      $ref: "./primitives.yaml#/DecStr"
+    state:
+      type: "string"
+      enum: ["reserved", "placed", "released", "lapsed"]
+    placeBefore:
+      $ref: "./primitives.yaml#/Instant"
+    filledSize:
+      $ref: "./primitives.yaml#/DecStr"
+    filledBaseSize:
+      $ref: "./primitives.yaml#/DecStr"
+    avgPrice:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    resultCode:
+      oneOf: [{ "type": "string" }, { "type": "null" }]
+    markouts:
+      type: "array"
+      description: Post-fill price movement by horizon. A positive value favours the order side. A partial sample has no leg-wide result.
+      items:
+        type: "object"
+        additionalProperties: false
+        required: ["horizonSeconds", "bps", "sampledFills", "totalFills", "observedAt", "reference", "calculatedAt"]
+        properties:
+          horizonSeconds:
+            type: "integer"
+            enum: [1, 5, 30]
+          bps:
+            oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+          sampledFills:
+            type: "integer"
+            minimum: 0
+          totalFills:
+            type: "integer"
+            minimum: 1
+          observedAt:
+            oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+          reference:
+            oneOf: [{ "type": "string", "enum": ["mid", "mark", "mixed"] }, { "type": "null" }]
+          calculatedAt:
+            $ref: "./primitives.yaml#/Instant"
+    order:
+      oneOf: [{ "$ref": "./orders.yaml#/Order" }, { "type": "null" }]
+RouteReport:
+  type: "object"
+  additionalProperties: false
+  required:
+    [
+      "arrivalPrice",
+      "filledSize",
+      "filledNotionalUsd",
+      "gasUsd",
+      "refundUsd",
+      "vwap",
+      "slippageBps",
+      "venueFeesUsd",
+      "ourFeesUsd",
+      "expectedFundingUsd",
+      "benchmarkPrice",
+      "realisedAllInPrice",
+      "netSavingBps",
+      "netSavingUsd",
+      "planSavingBps",
+      "legsSent",
+      "replans",
+      "msToComplete",
+      "provisional",
+      "byVenue",
+    ]
+  properties:
+    splitDecision:
+      oneOf: [{ "$ref": "#/SplitDecision" }, { "type": "null" }]
+    marginedPerVenue:
+      type: "boolean"
+    savingParts:
+      type: "object"
+      additionalProperties: false
+      required: ["benchmarkNotionalUsd", "execution", "fundingForecast", "exclusions"]
+      properties:
+        benchmarkNotionalUsd:
+          oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+        execution:
+          type: "object"
+          additionalProperties: false
+          required: ["status", "usd", "bps"]
+          properties:
+            status:
+              enum: ["pending", "final"]
+              type: "string"
+            usd:
+              oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+            bps:
+              oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+        fundingForecast:
+          type: "object"
+          additionalProperties: false
+          required: ["usd", "bps"]
+          properties:
+            usd:
+              oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+            bps:
+              oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+        exclusions:
+          type: "array"
+          items:
+            type: "string"
+            enum:
+              ["no_fills", "open_route", "provisional_fill", "unrecorded_fills", "unknown_paid_fees", "no_benchmark"]
+    arrivalPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    filledSize:
+      $ref: "./primitives.yaml#/DecStr"
+    filledNotionalUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    gasUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    refundUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    vwap:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    slippageBps:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    venueFeesUsd:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    ourFeesUsd:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    expectedFundingUsd:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    benchmarkPrice:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    realisedAllInPrice:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    netSavingBps:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    netSavingUsd:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    planSavingBps:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    legsSent:
+      type: "integer"
+      minimum: 0
+    replans:
+      type: "integer"
+      minimum: 0
+    msToComplete:
+      oneOf: [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+    provisional:
+      type: "boolean"
+    byVenue:
+      type: "array"
+      items:
+        type: "object"
+        additionalProperties: false
+        required: ["venue", "instrumentId", "filledSize", "vwap", "notionalUsd", "venueFeeUsd", "ourFeeUsd"]
+        properties:
+          venue:
+            $ref: "./primitives.yaml#/VenueId"
+          instrumentId:
+            type: "string"
+          filledSize:
+            $ref: "./primitives.yaml#/DecStr"
+          vwap:
+            oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+          notionalUsd:
+            $ref: "./primitives.yaml#/DecStr"
+          venueFeeUsd:
+            oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+          ourFeeUsd:
+            oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+Route:
+  type: "object"
+  additionalProperties: false
+  required:
+    [
+      "routeId",
+      "clientRouteId",
+      "group",
+      "side",
+      "type",
+      "tif",
+      "mode",
+      "origin",
+      "execution",
+      "reduceOnly",
+      "requestedSize",
+      "requestedNotional",
+      "limitPrice",
+      "worstPrice",
+      "filledSize",
+      "filledNotionalUsd",
+      "avgPrice",
+      "state",
+      "endReason",
+      "replans",
+      "legs",
+      "report",
+      "createdAt",
+      "updatedAt",
+      "endedAt",
+    ]
+  properties:
+    shortfall:
+      type: "object"
+      additionalProperties: false
+      required: ["policy", "action", "filledSize", "remainingSize"]
+      properties:
+        policy:
+          type: "string"
+          enum: ["keep", "unwind"]
+        action:
+          type: "string"
+          enum: ["kept", "unwind_requested", "nothing_filled"]
+        filledSize:
+          $ref: "./primitives.yaml#/DecStr"
+        remainingSize:
+          $ref: "./primitives.yaml#/DecStr"
+    routeId:
+      $ref: "./primitives.yaml#/Uuid"
+    clientRouteId:
+      $ref: "./primitives.yaml#/ClientOrderId"
+    group:
+      type: "string"
+    side:
+      type: "string"
+      enum: ["buy", "sell"]
+    type:
+      type: "string"
+      enum: ["limit", "market"]
+    tif:
+      type: "string"
+      enum: ["ioc", "gtc", "post_only"]
+    mode:
+      $ref: "./primitives.yaml#/Mode"
+    origin:
+      type: "string"
+      enum: ["api", "sdk", "terminal", "mcp", "ticket", "guardian"]
+    execution:
+      type: "string"
+      enum: ["server", "client"]
+    reduceOnly:
+      type: "boolean"
+    requestedSize:
+      $ref: "./primitives.yaml#/DecStr"
+    requestedNotional:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    limitPrice:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    worstPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    filledSize:
+      $ref: "./primitives.yaml#/DecStr"
+    filledNotionalUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    avgPrice:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    state:
+      $ref: "#/RouteState"
+    endReason:
+      oneOf:
+        [
+          {
+            "type": "string",
+            "enum":
+              [
+                "filled",
+                "depth",
+                "replans_used",
+                "refused",
+                "cancelled_by_user",
+                "kill_switch",
+                "routing_off",
+                "not_signed",
+                "not_replanned",
+                "recovered",
+              ],
+          },
+          { "type": "null" },
+        ]
+    replans:
+      type: "integer"
+      minimum: 0
+    lastRefusal:
+      description: The last leg that ended without a fill when the route ended failed; absent otherwise. `code` is the order's reject code, else the leg's result code.
+      type: "object"
+      additionalProperties: false
+      required: ["code", "leg", "replan"]
+      properties:
+        code:
+          type: "string"
+        leg:
+          type: "integer"
+          minimum: 0
+        replan:
+          type: "integer"
+          minimum: 0
+    legs:
+      type: "array"
+      items:
+        $ref: "#/RouteLeg"
+    plans:
+      type: "array"
+      items:
+        $ref: "#/RoutePlan"
+    report:
+      oneOf: [{ "$ref": "#/RouteReport" }, { "type": "null" }]
+    createdAt:
+      $ref: "./primitives.yaml#/Instant"
+    updatedAt:
+      $ref: "./primitives.yaml#/Instant"
+    endedAt:
+      oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+RoutePreviewVenueId:
+  type: "string"
+  description: The venues a preview may quote. Nothing else is in the product.
+  enum:
+    [
+      "hyperliquid",
+      "lighter",
+      "lighter-rh",
+      "aster",
+      "grvt",
+      "pacifica",
+      "nado",
+      "polymarket",
+      "robinhood-chain",
+      "binance",
+      "okx",
+      "bybit",
+      "bitget",
+      "gate",
+      "kraken",
+    ]
+RoutePreviewRequest:
+  type: "object"
+  description: An indicative route quote needs no account. Exactly one of size (base units) and notional (USD).
+  additionalProperties: false
+  required: ["group", "side"]
+  properties:
+    group:
+      type: "string"
+      minLength: 1
+      maxLength: 128
+      description: The instrument group, for example perp:BTC, spot:ETH/USDC, stock:NVDA or single:<instrumentId>.
+    side:
+      type: "string"
+      enum: ["buy", "sell"]
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    notional:
+      $ref: "./primitives.yaml#/DecStr"
+    price:
+      $ref: "./primitives.yaml#/DecStr"
+    maxSlippageBps:
+      type: "integer"
+      minimum: 1
+      maximum: 2000
+    includeVenues:
+      type: "array"
+      items:
+        $ref: "#/RoutePreviewVenueId"
+      minItems: 1
+      maxItems: 15
+      uniqueItems: true
+    excludeVenues:
+      type: "array"
+      items:
+        $ref: "#/RoutePreviewVenueId"
+      minItems: 1
+      maxItems: 15
+      uniqueItems: true
+    fundingHorizonHours:
+      type: "integer"
+      minimum: 1
+      maximum: 8760
+    split:
+      type: "boolean"
+    maxLegs:
+      type: "integer"
+      minimum: 1
+      maximum: 8
+  oneOf:
+    [
+      { "required": ["size"], "not": { "required": ["notional"] } },
+      { "required": ["notional"], "not": { "required": ["size"] } },
+    ]
+  allOf:
+    # A price makes a limit (immediate-or-cancel) quote; a limit has no slippage bound and no notional.
+    - not:
+        required: ["price"]
+        anyOf:
+          - required: ["maxSlippageBps"]
+          - required: ["notional"]
+RoutePreviewSkipReason:
+  type: "string"
+  enum:
+    [
+      "no_market",
+      "no_live_book",
+      "no_book_source",
+      "not_shareable",
+      "stale_book",
+      "market_closed",
+      "insufficient_depth",
+      "fee_schedule_unknown",
+      "fee_rule_missing",
+      "unit_unknown",
+      "depeg",
+      "below_minimum",
+      "no_ioc",
+    ]
+RoutePreviewLevel:
+  type: "object"
+  additionalProperties: false
+  required: ["px", "sz"]
+  properties:
+    px:
+      $ref: "./primitives.yaml#/DecStr"
+    sz:
+      $ref: "./primitives.yaml#/DecStr"
+RoutePreviewBook:
+  type: "object"
+  description: The live book a figure was walked on. ageMs is the answer's asOf less observedAt.
+  additionalProperties: false
+  required: ["snapshotId", "observedAt", "ageMs", "timestampSource", "levelsRead", "levelsSha256", "bandBasis"]
+  properties:
+    snapshotId:
+      type: "string"
+      description: The capture's epoch and sequence number of the image, venue:epoch:seq.
+    observedAt:
+      $ref: "./primitives.yaml#/Instant"
+    ageMs:
+      type: "integer"
+      minimum: 0
+    timestampSource:
+      type: "string"
+      enum: ["api_receive"]
+      description: The live feed carries no venue time; observedAt is the API clock when the last frame was applied.
+    levelsRead:
+      type: "integer"
+      minimum: 0
+    levelsSha256:
+      type: "string"
+      description: sha256 of the canonical JSON of the bids and asks read, so a reproduction can check its book.
+    bandBasis:
+      type: "string"
+      enum: ["mark", "book_mid"]
+RoutePreviewVenueFee:
+  type: "object"
+  description: The venue's own public fee at the tier assumed, in basis points of notional. A negative maker rate is a rebate.
+  additionalProperties: false
+  required: ["tier", "takerBps", "makerBps", "source", "readAt", "assumed"]
+  properties:
+    tier:
+      type: "string"
+    takerBps:
+      $ref: "./primitives.yaml#/DecStr"
+    makerBps:
+      $ref: "./primitives.yaml#/DecStr"
+    source:
+      type: "string"
+    readAt:
+      type: "string"
+      pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    assumed:
+      type: "boolean"
+      const: true
+RoutePreviewSingle:
+  type: "object"
+  description: "One venue alone for the quoted size, walked on its live book. Prices are USD per base unit; levels are in the venue's own price and size units."
+  additionalProperties: false
+  required:
+    - "size"
+    - "baseSize"
+    - "limitPrice"
+    - "touchPrice"
+    - "avgPrice"
+    - "slippageBps"
+    - "notionalUsd"
+    - "venueFeeRate"
+    - "venueFeeUsd"
+    - "ourFeeRate"
+    - "ourFeeUsd"
+    - "fundingUsd"
+    - "allInUsd"
+    - "allInPrice"
+    - "levelsConsumed"
+    - "levels"
+    - "covers"
+    - "coveredSize"
+  properties:
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    baseSize:
+      $ref: "./primitives.yaml#/DecStr"
+    limitPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    touchPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    avgPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    slippageBps:
+      $ref: "./primitives.yaml#/DecStr"
+    notionalUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    venueFeeRate:
+      $ref: "./primitives.yaml#/DecStr"
+    venueFeeUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    ourFeeRate:
+      $ref: "./primitives.yaml#/DecStr"
+    ourFeeUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    fundingUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    allInUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    allInPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    levelsConsumed:
+      type: "integer"
+      minimum: 0
+    levels:
+      type: "array"
+      items:
+        $ref: "#/RoutePreviewLevel"
+    covers:
+      type: "boolean"
+      description: True when the venue's book inside the bound carries the whole size alone.
+    coveredSize:
+      $ref: "./primitives.yaml#/DecStr"
+RoutePreviewLeg:
+  type: "object"
+  description: "One leg of the smart route, walked on its venue's live book. Prices are USD per base unit; levels are in the venue's own price and size units."
+  additionalProperties: false
+  required:
+    - "size"
+    - "baseSize"
+    - "limitPrice"
+    - "touchPrice"
+    - "avgPrice"
+    - "slippageBps"
+    - "notionalUsd"
+    - "venueFeeRate"
+    - "venueFeeUsd"
+    - "ourFeeRate"
+    - "ourFeeUsd"
+    - "fundingUsd"
+    - "allInUsd"
+    - "allInPrice"
+    - "levelsConsumed"
+    - "levels"
+    - "legNo"
+    - "venue"
+    - "instrumentId"
+    - "bookSnapshotId"
+    - "bookAgeMs"
+  properties:
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    baseSize:
+      $ref: "./primitives.yaml#/DecStr"
+    limitPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    touchPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    avgPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    slippageBps:
+      $ref: "./primitives.yaml#/DecStr"
+    notionalUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    venueFeeRate:
+      $ref: "./primitives.yaml#/DecStr"
+    venueFeeUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    ourFeeRate:
+      $ref: "./primitives.yaml#/DecStr"
+    ourFeeUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    fundingUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    allInUsd:
+      $ref: "./primitives.yaml#/DecStr"
+    allInPrice:
+      $ref: "./primitives.yaml#/DecStr"
+    levelsConsumed:
+      type: "integer"
+      minimum: 0
+    levels:
+      type: "array"
+      items:
+        $ref: "#/RoutePreviewLevel"
+    legNo:
+      type: "integer"
+      minimum: 1
+    venue:
+      $ref: "#/RoutePreviewVenueId"
+    instrumentId:
+      type: "string"
+    bookSnapshotId:
+      type: "string"
+    bookAgeMs:
+      type: "integer"
+      minimum: 0
+RoutePreviewFunding:
+  type: "object"
+  description: Expected carry for settlements after the quote and through the end of the holding horizon. A positive carry is a cost to the side.
+  additionalProperties: false
+  required: ["intervalS", "rateNow", "rateMean7d", "known", "carryFraction", "carryUsd"]
+  properties:
+    intervalS:
+      type: "integer"
+      minimum: 1
+    rateNow:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    rateMean7d:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    known:
+      type: "boolean"
+    settlements:
+      oneOf: [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+    nextFundingAt:
+      oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+    carryFraction:
+      description: The contribution of available forecast inputs. When known is false, this value may omit unsettled inputs.
+      $ref: "./primitives.yaml#/DecStr"
+    carryUsd:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+RoutePreviewVenue:
+  type: "object"
+  additionalProperties: false
+  required: ["venue", "instrumentId", "cls", "status", "skip", "book", "venueFee", "single", "funding", "inSmartRoute"]
+  properties:
+    venue:
+      $ref: "#/RoutePreviewVenueId"
+    instrumentId:
+      oneOf: [{ "type": "string" }, { "type": "null" }]
+    cls:
+      oneOf: [{ "$ref": "./primitives.yaml#/InstrumentClass" }, { "type": "null" }]
+    status:
+      type: "string"
+      enum: ["quoted", "skipped"]
+    skip:
+      oneOf:
+        - type: "object"
+          additionalProperties: false
+          required: ["reason", "detail"]
+          properties:
+            reason:
+              $ref: "#/RoutePreviewSkipReason"
+            detail:
+              oneOf: [{ "type": "string" }, { "type": "null" }]
+        - type: "null"
+    book:
+      oneOf: [{ "$ref": "#/RoutePreviewBook" }, { "type": "null" }]
+    venueFee:
+      oneOf: [{ "$ref": "#/RoutePreviewVenueFee" }, { "type": "null" }]
+    single:
+      oneOf: [{ "$ref": "#/RoutePreviewSingle" }, { "type": "null" }]
+    funding:
+      oneOf: [{ "$ref": "#/RoutePreviewFunding" }, { "type": "null" }]
+    inSmartRoute:
+      type: "boolean"
+RoutePreview:
+  type: "object"
+  description: |
+    An indicative quote: real live books and public fee schedules, no account, no balance, no reservation. It places,
+    signs and writes nothing, and carries nothing an order could be built from.
+  additionalProperties: false
+  required:
+    - "indicative"
+    - "executable"
+    - "asOf"
+    - "status"
+    - "message"
+    - "request"
+    - "quotedVenues"
+    - "bestSingle"
+    - "smartRoute"
+    - "saving"
+    - "venues"
+    - "skipped"
+    - "assumptions"
+  properties:
+    indicative:
+      type: "boolean"
+      const: true
+    executable:
+      type: "boolean"
+      const: false
+    asOf:
+      $ref: "./primitives.yaml#/Instant"
+    status:
+      type: "string"
+      enum: ["smart_route", "single_venue", "no_quote"]
+    message:
+      type: "string"
+    request:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "group"
+        - "side"
+        - "type"
+        - "size"
+        - "notional"
+        - "limitPrice"
+        - "maxSlippageBps"
+        - "fundingHorizonHours"
+        - "split"
+        - "maxLegs"
+        - "ourFeeOrigin"
+        - "ourFeeTier"
+        - "venues"
+      properties:
+        group:
+          type: "string"
+        side:
+          type: "string"
+          enum: ["buy", "sell"]
+        type:
+          type: "string"
+          enum: ["market", "limit"]
+        size:
+          $ref: "./primitives.yaml#/DecStr"
+        notional:
+          oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+        limitPrice:
+          oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+        maxSlippageBps:
+          oneOf: [{ "type": "integer" }, { "type": "null" }]
+        fundingHorizonHours:
+          oneOf: [{ "type": "integer" }, { "type": "null" }]
+        split:
+          type: "boolean"
+        maxLegs:
+          type: "integer"
+        ourFeeOrigin:
+          type: "string"
+          enum: ["algo", "manual"]
+        ourFeeTier:
+          type: "string"
+          const: "base"
+        venues:
+          type: "array"
+          items:
+            $ref: "#/RoutePreviewVenueId"
+    quotedVenues:
+      type: "integer"
+      minimum: 0
+    bestSingle:
+      oneOf:
+        - type: "object"
+          additionalProperties: false
+          required: ["venue", "instrumentId", "allInPrice", "allInUsd"]
+          properties:
+            venue:
+              $ref: "#/RoutePreviewVenueId"
+            instrumentId:
+              type: "string"
+            allInPrice:
+              $ref: "./primitives.yaml#/DecStr"
+            allInUsd:
+              $ref: "./primitives.yaml#/DecStr"
+        - type: "null"
+    smartRoute:
+      oneOf:
+        - type: "object"
+          additionalProperties: false
+          required:
+            - "legs"
+            - "coveredSize"
+            - "uncoveredSize"
+            - "arrivalPrice"
+            - "worstPrice"
+            - "totals"
+            - "planSha256"
+          properties:
+            splitDecision:
+              oneOf: [{ "$ref": "#/SplitDecision" }, { "type": "null" }]
+            splitGainBps:
+              description: The gain the split decision compared with its threshold. Returned for anonymous previews when a comparable split was evaluated.
+              oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+            legs:
+              type: "array"
+              items:
+                $ref: "#/RoutePreviewLeg"
+            coveredSize:
+              $ref: "./primitives.yaml#/DecStr"
+            uncoveredSize:
+              $ref: "./primitives.yaml#/DecStr"
+            arrivalPrice:
+              $ref: "./primitives.yaml#/DecStr"
+            worstPrice:
+              $ref: "./primitives.yaml#/DecStr"
+            totals:
+              type: "object"
+              additionalProperties: false
+              required: ["notionalUsd", "venueFeeUsd", "ourFeeUsd", "fundingUsd", "allInUsd", "allInPrice"]
+              properties:
+                notionalUsd:
+                  $ref: "./primitives.yaml#/DecStr"
+                venueFeeUsd:
+                  $ref: "./primitives.yaml#/DecStr"
+                ourFeeUsd:
+                  $ref: "./primitives.yaml#/DecStr"
+                fundingUsd:
+                  $ref: "./primitives.yaml#/DecStr"
+                fundingKnown:
+                  type: "boolean"
+                  description: Whether all selected legs could price the requested funding horizon. Returned for anonymous previews.
+                allInUsd:
+                  $ref: "./primitives.yaml#/DecStr"
+                allInPrice:
+                  $ref: "./primitives.yaml#/DecStr"
+            planSha256:
+              type: "string"
+        - type: "null"
+    bestFullSingle:
+      description: Best single-venue quote covering the requested size within the price bound, allowing rounding dust. Returned for anonymous previews.
+      oneOf:
+        - type: "object"
+          additionalProperties: false
+          required: ["venue", "allInPrice"]
+          properties:
+            venue:
+              $ref: "#/RoutePreviewVenueId"
+            allInPrice:
+              $ref: "./primitives.yaml#/DecStr"
+        - type: "null"
+    saving:
+      oneOf:
+        - type: "object"
+          additionalProperties: false
+          required: ["bps", "usd", "versus"]
+          properties:
+            bps:
+              $ref: "./primitives.yaml#/DecStr"
+            usd:
+              $ref: "./primitives.yaml#/DecStr"
+            versus:
+              $ref: "#/RoutePreviewVenueId"
+        - type: "null"
+    venues:
+      type: "array"
+      items:
+        $ref: "#/RoutePreviewVenue"
+    skipped:
+      type: "array"
+      items:
+        type: "object"
+        additionalProperties: false
+        required: ["venue", "reason", "detail"]
+        properties:
+          venue:
+            $ref: "#/RoutePreviewVenueId"
+          reason:
+            $ref: "#/RoutePreviewSkipReason"
+          detail:
+            oneOf: [{ "type": "string" }, { "type": "null" }]
+    assumptions:
+      type: "array"
+      items:
+        type: "string"

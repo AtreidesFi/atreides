@@ -1,0 +1,231 @@
+# Hosted bots (09 §5.12, 03 §7.5b). The file is never returned by any operation.
+BotLang:
+  type: string
+  enum: [python, ts]
+BotStatus:
+  type: string
+  enum: [draft, ready, starting, running, stopping, stopped, crashed, suspended]
+BotTemplate:
+  type: object
+  additionalProperties: false
+  required: [name, lang, description]
+  properties:
+    name:
+      type: string
+      enum: [strategy_run, dca, grid]
+    lang:
+      type: array
+      items:
+        $ref: "#/BotLang"
+    description:
+      type: string
+BotLimitsInput:
+  type: object
+  additionalProperties: false
+  description: The limits of the bot's own key. The order size, the daily notional and the loss limit are required.
+  required: [maxOrderNotional, dailyNotional, lossLimit]
+  properties:
+    maxOrderNotional:
+      $ref: ./primitives.yaml#/MoneyJson
+    dailyNotional:
+      $ref: ./primitives.yaml#/MoneyJson
+    lossLimit:
+      description: "The loss of one run, in the key's asset, at which the bot is stopped and its positions are closed."
+      $ref: ./primitives.yaml#/MoneyJson
+    maxOpenNotional:
+      $ref: ./primitives.yaml#/MoneyJson
+BotCreateRequest:
+  type: object
+  additionalProperties: false
+  required: [name, lang, accountIds, limits]
+  properties:
+    name:
+      type: string
+      pattern: "^[A-Za-z0-9 ._-]{1,40}$"
+    lang:
+      $ref: "#/BotLang"
+    template:
+      type: string
+      enum: [strategy_run, dca, grid]
+    accountIds:
+      type: array
+      minItems: 1
+      maxItems: 20
+      uniqueItems: true
+      items:
+        $ref: ./primitives.yaml#/Uuid
+    limits:
+      $ref: "#/BotLimitsInput"
+    schedule:
+      description: "`forever` (default) or a run every `everyS` seconds."
+      oneOf:
+        - const: forever
+        - type: object
+          additionalProperties: false
+          required: [everyS]
+          properties:
+            everyS:
+              type: integer
+              minimum: 10
+              maximum: 86400
+    deadManMs:
+      type: integer
+      description: The dead-man timeout armed on the bot's accounts while it runs (default 30000).
+      minimum: 5000
+      maximum: 600000
+BotVersion:
+  type: object
+  additionalProperties: false
+  required: [number, fileName, sha256, byteCount]
+  properties:
+    number:
+      type: integer
+    fileName:
+      type: string
+    sha256:
+      type: string
+      pattern: "^[0-9a-f]{64}$"
+    byteCount:
+      type: integer
+BotResources:
+  type: object
+  additionalProperties: false
+  required: [cpuMillisUsed, cpuMillisLimit, memoryMbUsed, memoryMbLimit, diskMbUsed, diskMbLimit]
+  properties:
+    cpuMillisUsed:
+      type: integer
+    cpuMillisLimit:
+      type: integer
+    memoryMbUsed:
+      type: integer
+    memoryMbLimit:
+      type: integer
+    diskMbUsed:
+      type: integer
+    diskMbLimit:
+      type: integer
+Bot:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      botId,
+      name,
+      lang,
+      template,
+      status,
+      desired,
+      stopReason,
+      restarts,
+      version,
+      keyId,
+      accountIds,
+      resources,
+      createdAt,
+      updatedAt,
+    ]
+  properties:
+    botId:
+      $ref: ./primitives.yaml#/Uuid
+    name:
+      type: string
+    lang:
+      $ref: "#/BotLang"
+    template:
+      oneOf:
+        - type: string
+        - type: "null"
+    status:
+      $ref: "#/BotStatus"
+    desired:
+      type: string
+      enum: [running, stopped]
+    stopReason:
+      oneOf:
+        - type: string
+        - type: "null"
+    restarts:
+      type: integer
+    version:
+      oneOf:
+        - $ref: "#/BotVersion"
+        - type: "null"
+    keyId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    accountIds:
+      type: array
+      items:
+        $ref: ./primitives.yaml#/Uuid
+    resources:
+      oneOf:
+        - $ref: "#/BotResources"
+        - type: "null"
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    updatedAt:
+      $ref: ./primitives.yaml#/Instant
+BotCreated:
+  type: object
+  additionalProperties: false
+  required: [bot, grantMessage]
+  properties:
+    bot:
+      $ref: "#/Bot"
+    grantMessage:
+      type: string
+      description: The text the owner's wallet signs (03 API-017). It is valid for five minutes.
+BotGrantRequest:
+  type: object
+  additionalProperties: false
+  required: [signature, signer, scheme]
+  properties:
+    signature:
+      type: string
+      minLength: 1
+      maxLength: 1024
+    signer:
+      type: string
+      minLength: 1
+      maxLength: 128
+    scheme:
+      $ref: ./keys.yaml#/GrantScheme
+BotFileRequest:
+  type: object
+  additionalProperties: false
+  required: [fileName, contentBase64]
+  properties:
+    fileName:
+      type: string
+      pattern: "^[A-Za-z0-9._-]{1,120}$"
+    contentBase64:
+      type: string
+      maxLength: 2800000
+BotLogLine:
+  type: object
+  additionalProperties: false
+  required: [at, stream, text]
+  properties:
+    at:
+      $ref: ./primitives.yaml#/Instant
+    stream:
+      type: string
+      enum: [out, err]
+    text:
+      type: string
+      maxLength: 2048
+BotLogs:
+  type: object
+  additionalProperties: false
+  required: [lines, next]
+  properties:
+    lines:
+      type: array
+      items:
+        $ref: "#/BotLogLine"
+    next:
+      description: Pass it as `since` to read on; null when there is nothing newer yet.
+      oneOf:
+        - type: string
+        - type: "null"

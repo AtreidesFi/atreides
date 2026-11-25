@@ -1,0 +1,433 @@
+# Positions, balances, fills, fill explanation, fee summary and equity (03 §7.6). Sources only: no handlers.
+positions:
+  get:
+    operationId: listPositions
+    summary: Read positions across accounts.
+    description: One entry per account. A read that failed carries its failure; it is never an empty list.
+    tags:
+      - Reads
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - account_not_bound
+    x-mcp-tool:
+      name: my_positions
+      description: "Read the user's positions by venue. A venue that could not be read says so; it is never an empty list."
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: accountId
+        in: query
+        required: false
+        description: Only these venue accounts (repeatable). A key bound to other accounts is refused with `account_not_bound`.
+        schema:
+          type: array
+          items:
+            $ref: ../components/primitives.yaml#/Uuid
+        style: form
+        explode: true
+      - $ref: ../components/parameters.yaml#/Venue
+    responses:
+      "200":
+        description: Positions per account.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/reads.yaml#/AccountPositions
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                  venue: hyperliquid
+                  read:
+                    ok: true
+                    value:
+                      - instrumentId: hyperliquid:BTC
+                        side: long
+                        size: "0.01"
+                        entryPrice: "64000"
+                        markPrice: "65000"
+                        liquidationPrice: "52000"
+                        unrealizedPnl:
+                          amount: "10"
+                          asset: usdc
+                        marginMode: cross
+                        leverage: 5
+                    asOf: 2026-11-07T09:30:00.000Z
+balances:
+  get:
+    operationId: listBalances
+    summary: Read balances across accounts.
+    tags:
+      - Reads
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - account_not_bound
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/AccountId
+      - $ref: ../components/parameters.yaml#/Venue
+    responses:
+      "200":
+        description: Balances per account.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/reads.yaml#/AccountBalances
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                  venue: hyperliquid
+                  read:
+                    ok: true
+                    value:
+                      - asset: usdc
+                        total: "1000"
+                        free: "800"
+                        accountMode: cross
+                    asOf: 2026-11-07T09:30:00.000Z
+fills:
+  get:
+    operationId: listFills
+    summary: List fills, newest first by `at`.
+    description: Every mode, provisional or reconciled.
+    tags:
+      - Reads
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - cursor_invalid
+      - account_not_bound
+    x-mcp-tool:
+      name: my_fills
+      description: "List the user's fills and the fees charged, newest first."
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/AccountId
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: instrumentId
+        in: query
+        required: false
+        description: Only this instrument.
+        schema:
+          type: string
+      - name: state
+        in: query
+        required: false
+        description: Only fills in this evidence state.
+        schema:
+          type: string
+          enum:
+            - provisional
+            - reconciled
+      - name: mode
+        in: query
+        required: false
+        description: Only fills made in this mode.
+        schema:
+          $ref: ../components/primitives.yaml#/Mode
+      - $ref: ../components/parameters.yaml#/From
+      - $ref: ../components/parameters.yaml#/To
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of fills.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/reads.yaml#/Fill
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - fillId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d12
+                  accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                  venue: hyperliquid
+                  instrumentId: hyperliquid:BTC
+                  side: buy
+                  liquidity: taker
+                  price: "65000"
+                  size: "0.01"
+                  notional: "650"
+                  venueFee:
+                    amount: "0.2275"
+                    asset: usdc
+                  ourFee:
+                    amount: "0.0325"
+                    asset: usdc
+                  state: reconciled
+                  mode: gateway
+                  origin: sdk
+                  orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                  clientOrderId: bot-7-000123
+                  venueFillId: "9981"
+                  at: 2026-11-07T09:30:00.000Z
+              nextCursor: null
+fillExplanation:
+  get:
+    operationId: getFillExplanation
+    summary: "Explain a fill: its rate, reconciliation and rewards."
+    tags:
+      - Reads
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    x-mcp-tool:
+      name: explain_fill
+      description: "Explain one fill with numbers: the fee rate and tier, whether the venue day is reconciled, and the
+        referral it earned."
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: fillId
+        in: path
+        required: true
+        description: The fill.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The explanation.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/reads.yaml#/FillExplanation
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                fill:
+                  fillId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d12
+                  accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                  venue: hyperliquid
+                  instrumentId: hyperliquid:BTC
+                  side: buy
+                  liquidity: taker
+                  price: "65000"
+                  size: "0.01"
+                  notional: "650"
+                  venueFee:
+                    amount: "0.2275"
+                    asset: usdc
+                  ourFee:
+                    amount: "0.0325"
+                    asset: usdc
+                  state: reconciled
+                  mode: gateway
+                  origin: sdk
+                  orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                  clientOrderId: bot-7-000123
+                  venueFillId: "9981"
+                  at: 2026-11-07T09:30:00.000Z
+                rate:
+                  tierName: base
+                  origin: algo
+                  ruleVersion: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d16
+                  cappedBy: null
+                reconciliation:
+                  state: reconciled
+                  venueDay: 2026-11-07
+                rewards:
+                  referral:
+                    amount: "0.0065"
+                    asset: usdc
+                  state: claimable
+feesSummary:
+  get:
+    operationId: summarizeFees
+    summary: Sum the fees paid by venue, split into the venue's part and ours.
+    tags:
+      - Reads
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+    x-mcp-tool:
+      name: my_fees
+      description: Sum the fees paid in a period by venue, split into the venue's part and ours.
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: from
+        in: query
+        required: true
+        description: Start of the period.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: to
+        in: query
+        required: true
+        description: End of the period.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+    responses:
+      "200":
+        description: Fees by venue.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/reads.yaml#/FeesSummary
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                byVenue:
+                  - venue: hyperliquid
+                    notional:
+                      amount: "650"
+                      asset: usdc
+                    venueFees:
+                      - amount: "0.2275"
+                        asset: usdc
+                    ourFees:
+                      - amount: "0.0325"
+                        asset: usdc
+                    fills: 1
+equity:
+  get:
+    operationId: getEquity
+    summary: Read current and daily equity.
+    description: Current equity comes through the gateway; daily equity from snapshots. `from` and `to` are UTC days.
+    tags:
+      - Reads
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - account_not_bound
+    x-mcp-tool:
+      name: my_equity
+      description: "Read the user's equity by venue; an unreadable venue makes the total unavailable."
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/AccountId
+      - name: from
+        in: query
+        required: false
+        description: First day.
+        schema:
+          $ref: ../components/reads.yaml#/UtcDay
+      - name: to
+        in: query
+        required: false
+        description: Last day.
+        schema:
+          $ref: ../components/reads.yaml#/UtcDay
+    responses:
+      "200":
+        description: Equity.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/reads.yaml#/EquityView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                current:
+                  - accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                    venue: hyperliquid
+                    read:
+                      ok: true
+                      value:
+                        amount: "1000"
+                        asset: usdc
+                      asOf: 2026-11-07T09:30:00.000Z
+                daily:
+                  - day: 2026-11-06
+                    accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                    equity:
+                      amount: "990"
+                      asset: usdc
+                    source: snapshot

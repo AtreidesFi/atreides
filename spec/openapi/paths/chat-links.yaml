@@ -1,0 +1,349 @@
+# Chat links for Discord and Telegram (10 §10, §17.4). Creating, finishing and removing a link needs a step-up.
+links:
+  get:
+    operationId: listChatLinks
+    summary: List the chat links.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - links
+                  properties:
+                    links:
+                      type: array
+                      items:
+                        $ref: ../components/assistant.yaml#/ChatLinkView
+            example:
+              ok: true
+              data:
+                links:
+                  - &a1
+                    id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                    transport: telegram
+                    username: trader_7
+                    dmBlocked: false
+                    hideAmounts: true
+                    quietFrom: 22:00
+                    quietTo: 07:00
+                    timezone: Europe/Berlin
+                    hourlyCap: 12
+                    linkedAt: 2026-11-07T09:30:00.000Z
+link:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  patch:
+    operationId: updateChatLink
+    summary: Change the delivery settings of a chat link.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - invalid_request
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/UpdateChatLinkRequest
+          example:
+            hideAmounts: false
+            hourlyCap: 20
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/ChatLinkView
+                - &a2
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: *a1
+  delete:
+    operationId: unlinkChat
+    summary: Unlink a chat.
+    description: A session with a recent step-up, or the chat service for this link only.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - forbidden
+      - second_factor_required
+      - second_factor_invalid
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    parameters:
+      - &a3
+        $ref: ../components/headers.yaml#/SecondFactor
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                - *a2
+            example:
+              ok: true
+              data: {}
+code:
+  post:
+    operationId: createChatLinkCode
+    summary: Make a one-time code to link a chat.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - forbidden
+      - second_factor_required
+      - second_factor_invalid
+    security:
+      - session: []
+    parameters:
+      - *a3
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/ChatLinkCodeRequest
+          example:
+            transport: telegram
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/assistant.yaml#/ChatLinkCode
+                - *a2
+            example:
+              ok: true
+              data:
+                code: K7Q2-M9XD
+                expiresAt: 2026-11-07T09:35:00.000Z
+                deepLink: https://t.me/example_bot?start=K7Q2-M9XD
+claim:
+  post:
+    operationId: claimChatLinkCode
+    summary: Claim a link code from the chat side.
+    description: "The chat service calls this with no acting user: the single-use code is the proof, so it takes no
+      idempotency key."
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: service
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - chat_link_code_invalid
+      - forbidden
+    x-service: true
+    security:
+      - service: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/ClaimChatLinkRequest
+          example:
+            code: K7Q2-M9XD
+            transport: telegram
+            externalUserId: "123456789"
+            externalChatId: "123456789"
+            username: trader_7
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - linkId
+                      properties:
+                        linkId:
+                          $ref: ../components/primitives.yaml#/Uuid
+                - *a2
+            example:
+              ok: true
+              data:
+                linkId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+discordStart:
+  post:
+    operationId: startDiscordLink
+    summary: Start linking Discord.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - forbidden
+      - second_factor_required
+      - second_factor_invalid
+      - feature_unavailable
+    x-flag: bots.discord
+    security:
+      - session: []
+    parameters:
+      - *a3
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+          example: {}
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - authorizeUrl
+                      properties:
+                        authorizeUrl:
+                          type: string
+                - *a2
+            example:
+              ok: true
+              data:
+                authorizeUrl: https://discord.com/oauth2/authorize?client_id=1&state=abc
+discordCallback:
+  get:
+    operationId: finishDiscordLink
+    summary: Finish linking Discord.
+    description: The OAuth redirect. Needs the state and the same session as the start. Answers 302 to Connections with
+      `?linked=discord` or `?link_error=<code>`.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - chat_link_code_invalid
+      - feature_unavailable
+    x-flag: bots.discord
+    security:
+      - session: []
+    parameters:
+      - name: code
+        in: query
+        required: true
+        description: The OAuth code.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      - name: state
+        in: query
+        required: true
+        description: The state of the start.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+    responses:
+      "302":
+        description: To Connections, with `?linked=discord` or `?link_error=<code>`.
+        headers:
+          Location:
+            schema:
+              type: string

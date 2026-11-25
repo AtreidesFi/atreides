@@ -1,0 +1,57 @@
+# Ask the assistant (10 §17.4). The answer is an event stream after the checks pass.
+ask:
+  post:
+    operationId: askAssistant
+    summary: Ask the assistant a question.
+    description:
+      Answers as a stream of server-sent events, one JSON object of the AskEvent schema per `data:` line, after
+      the checks pass. A refusal before the stream is HTTP 200 JSON. API keys and MCP tokens are refused with
+      `forbidden`.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: heavy
+    x-idempotency: none
+    x-refusals:
+      - forbidden
+      - blocked
+      - rate_limited
+      - invalid_request
+      - feature_unavailable
+    x-flag: assistant.ask
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/AskRequest
+          example:
+            text: What is the BTC funding on Hyperliquid?
+            subject:
+              screen: trade
+              instrument: BTC-PERP
+              venue: hyperliquid
+    responses:
+      "200":
+        description: The event stream, or a refusal as JSON before the stream starts.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: forbidden
+              message: The assistant is not available yet.
+              retryable: false
+              requestId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+          text/event-stream:
+            schema:
+              $ref: ../components/assistant.yaml#/AskEvent
+            example:
+              type: text
+              delta: "Nothing is placed yet. "

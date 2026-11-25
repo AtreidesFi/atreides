@@ -1,0 +1,472 @@
+# API keys (03 §5, §7.2) and whoami. Owner 03.
+# Operations only, no handlers (ORC-F01). Schemas are in ../components/.
+apiKeys:
+  get:
+    operationId: listApiKeys
+    summary: List the API keys of the user.
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security: &a1
+      - session: []
+    responses:
+      "200":
+        description: The keys, in every state.
+        headers:
+          X-Request-Id: &a2
+            $ref: ../components/headers.yaml#/X-Request-Id
+          RateLimit-Limit: &a3
+            $ref: ../components/headers.yaml#/RateLimit-Limit
+          RateLimit-Remaining: &a4
+            $ref: ../components/headers.yaml#/RateLimit-Remaining
+          RateLimit-Reset: &a5
+            $ref: ../components/headers.yaml#/RateLimit-Reset
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/keys.yaml#/ApiKey
+            example:
+              ok: true
+              data:
+                - &a6
+                  id: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b
+                  keyText: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKD
+                  kind: ed25519
+                  name: market maker
+                  scopes: &a10
+                    - read
+                    - trade
+                  accounts: &a11
+                    - 01936f2e-7c42-7399-b608-bcab9a8f7e6d
+                  ipAllowlist: &a12
+                    - 203.0.113.0/24
+                  state: active
+                  expiresAt: 2027-11-07T09:30:00.000Z
+                  rotatedTo: null
+                  overlapUntil: null
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  lastUsedAt: null
+                  grantSigner: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                  limits: &a13
+                    maxOrderNotional:
+                      amount: "5000"
+                      asset: usdc
+                    dailyNotional:
+                      amount: "50000"
+                      asset: usdc
+                    maxOpenNotional: null
+                    maxDailyLoss: null
+                    maxOpenOrders: 20
+                    maxOrdersPerMin: 60
+                    venues:
+                      - hyperliquid
+                    classes: null
+                    instruments: null
+                    mode: normal
+  post:
+    operationId: createApiKey
+    summary: Create an API key or an MCP token.
+    description: An `ed25519` key registers the public key the client made and keeps the private key to itself; a trade key also needs the wallet grant of the signing rules. An `mcp_token` answers its token once, in `token`. At most ten keys are active or rotating. Needs the second factor when it is on, except for a trade key, whose grant already counts.
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - key_limit_reached
+      - grant_invalid
+      - grant_signer_not_owner
+      - account_not_connected
+      - account_not_bound
+      - second_factor_required
+      - second_factor_invalid
+      - feature_unavailable
+    security: *a1
+    parameters:
+      - &a8
+        $ref: ../components/headers.yaml#/IdempotencyKey
+      - $ref: ../components/headers.yaml#/SecondFactor
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/keys.yaml#/ApiKeyCreate
+          example:
+            kind: ed25519
+            name: market maker
+            publicKey: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            scopes:
+              - read
+              - trade
+            accounts:
+              - 01936f2e-7c42-7399-b608-bcab9a8f7e6d
+            ipAllowlist:
+              - 203.0.113.0/24
+            expiresAt: 2027-11-07T09:30:00.000Z
+            grant: &a9
+              message: |-
+                api-key-grant/v1
+                Origin: https://api.example.com
+                Key: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKD
+              signature: "0xababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+              signer: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+              scheme: eip191
+            limits:
+              maxOrderNotional:
+                amount: "5000"
+                asset: usdc
+              dailyNotional:
+                amount: "50000"
+                asset: usdc
+              venues:
+                - hyperliquid
+    responses:
+      "200":
+        description: The key, and for an MCP token its token.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/keys.yaml#/ApiKeyCreated
+                - &a7
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                apiKey: *a6
+apiKey:
+  get:
+    operationId: getApiKey
+    summary: Read one API key.
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    security: *a1
+    parameters:
+      - name: keyId
+        in: path
+        required: true
+        description: The key.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The key.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/keys.yaml#/ApiKey
+                - *a7
+            example:
+              ok: true
+              data: *a6
+apiKeyRotate:
+  post:
+    operationId: rotateApiKey
+    summary: Replace a key with a new one.
+    description: Makes a key with the same name, scopes, accounts, allowlist and limits for the new public key (a trade key needs a new grant). The old key goes to `rotating` for `overlapHours` and then to `expired`.
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - grant_invalid
+      - grant_signer_not_owner
+      - connection_state
+      - key_limit_reached
+    security: *a1
+    parameters:
+      - *a8
+      - name: keyId
+        in: path
+        required: true
+        description: The key to replace.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/keys.yaml#/ApiKeyRotate
+          example:
+            publicKey: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            grant: *a9
+            overlapHours: 24
+    responses:
+      "200":
+        description: Both keys.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/keys.yaml#/ApiKeyRotated
+                - *a7
+            example:
+              ok: true
+              data:
+                old:
+                  id: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b
+                  keyText: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKD
+                  kind: ed25519
+                  name: market maker
+                  scopes: *a10
+                  accounts: *a11
+                  ipAllowlist: *a12
+                  state: rotating
+                  expiresAt: 2027-11-07T09:30:00.000Z
+                  rotatedTo: 01936f2e-7c41-7288-a5f7-ab9a8f7e6d5c
+                  overlapUntil: 2026-11-08T09:30:00.000Z
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  lastUsedAt: null
+                  grantSigner: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                  limits: *a13
+                new:
+                  id: 01936f2e-7c41-7288-a5f7-ab9a8f7e6d5c
+                  keyText: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKE
+                  kind: ed25519
+                  name: market maker
+                  scopes: *a10
+                  accounts: *a11
+                  ipAllowlist: *a12
+                  state: active
+                  expiresAt: 2027-11-07T09:30:00.000Z
+                  rotatedTo: null
+                  overlapUntil: null
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  lastUsedAt: null
+                  grantSigner: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                  limits: *a13
+apiKeyRevoke:
+  post:
+    operationId: revokeApiKey
+    summary: Revoke an API key.
+    description: Takes effect at once and closes the key's sockets. Revoking a revoked key returns it.
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals: []
+    security: *a1
+    parameters:
+      - *a8
+      - name: keyId
+        in: path
+        required: true
+        description: The key to revoke.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The key, now revoked.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/keys.yaml#/ApiKey
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b
+                keyText: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKD
+                kind: ed25519
+                name: market maker
+                scopes: *a10
+                accounts: *a11
+                ipAllowlist: *a12
+                state: revoked
+                expiresAt: 2027-11-07T09:30:00.000Z
+                rotatedTo: null
+                overlapUntil: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                lastUsedAt: null
+                grantSigner: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                limits: *a13
+apiKeyLimits:
+  put:
+    operationId: setApiKeyLimits
+    summary: Set the limits of an API key.
+    description: Writes a new version of the key's limits. A field left out is cleared, except on an agent token (an MCP token with scope trade) must keep `maxOrderNotional` and `dailyNotional` (invalid_request otherwise), and changing them needs the second factor as at creation. `venues` must be a subset of the venues of the bound accounts.
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - feature_unavailable
+      - second_factor_required
+      - second_factor_invalid
+    security: *a1
+    parameters:
+      - *a8
+      - $ref: ../components/headers.yaml#/SecondFactor
+      - name: keyId
+        in: path
+        required: true
+        description: The key.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/keys.yaml#/ApiKeyLimitsInput
+          example:
+            maxOrderNotional:
+              amount: "5000"
+              asset: usdc
+            dailyNotional:
+              amount: "50000"
+              asset: usdc
+            venues:
+              - hyperliquid
+    responses:
+      "200":
+        description: The key with its new limits.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/keys.yaml#/ApiKey
+            example:
+              ok: true
+              data: *a6
+whoami:
+  get:
+    operationId: whoami
+    summary: Say who the request is made as.
+    description: Works with a session or a signed key request. `keys bind` signs it to prove the key file holds the private key.
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The caller.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/keys.yaml#/Whoami
+            example:
+              ok: true
+              data:
+                userId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                principal: api_key
+                keyText: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKD
+                scopes:
+                  - read
+                  - trade
+                accounts:
+                  - 01936f2e-7c42-7399-b608-bcab9a8f7e6d
+                env: live
+                serverTime: 2026-11-07T09:30:00.000Z

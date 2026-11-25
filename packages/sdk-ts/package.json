@@ -1,0 +1,104 @@
+{
+  "name": "@atreides/sdk",
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "atreides": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "node": "./dist/node.js",
+      "default": "./dist/index.js"
+    },
+    "./strategy": {
+      "types": "./dist/strategy.d.ts",
+      "node": "./dist/strategy.js"
+    },
+    "./keys": {
+      "types": "./dist/keys.d.ts",
+      "default": "./dist/keys.js"
+    },
+    "./keys/node": {
+      "types": "./dist/keys-node.d.ts",
+      "node": "./dist/keys-node.js"
+    },
+    "./local": {
+      "types": "./dist/local.d.ts",
+      "default": "./dist/local.js"
+    },
+    "./signing": {
+      "types": "./dist/signing.d.ts",
+      "default": "./dist/signing.js"
+    },
+    "./direct/aster": {
+      "types": "./dist/direct-aster.d.ts",
+      "default": "./dist/direct-aster.js"
+    },
+    "./direct/binance": {
+      "types": "./dist/direct-binance.d.ts",
+      "default": "./dist/direct-binance.js"
+    },
+    "./direct/hyperliquid": {
+      "types": "./dist/direct-hyperliquid.d.ts",
+      "default": "./dist/direct-hyperliquid.js"
+    },
+    "./direct/gate": {
+      "types": "./dist/direct-gate.d.ts",
+      "default": "./dist/direct-gate.js"
+    },
+    "./direct/kraken": {
+      "types": "./dist/direct-kraken.d.ts",
+      "default": "./dist/direct-kraken.js"
+    },
+    "./direct/lighter": {
+      "types": "./dist/direct-lighter.d.ts",
+      "default": "./dist/direct-lighter.js"
+    },
+    "./direct/pacifica": {
+      "types": "./dist/direct-pacifica.d.ts",
+      "default": "./dist/direct-pacifica.js"
+    },
+    "./direct/okx": {
+      "types": "./dist/direct-okx.d.ts",
+      "default": "./dist/direct-okx.js"
+    },
+    "./direct/bybit": {
+      "types": "./dist/direct-bybit.d.ts",
+      "default": "./dist/direct-bybit.js"
+    },
+    "./direct/bitget": {
+      "types": "./dist/direct-bitget.d.ts",
+      "default": "./dist/direct-bitget.js"
+    },
+    "./direct/robinhood-chain": {
+      "types": "./dist/direct-robinhood-chain.d.ts",
+      "default": "./dist/direct-robinhood-chain.js"
+    },
+    "./direct/polymarket": {
+      "types": "./dist/direct-polymarket.d.ts",
+      "default": "./dist/direct-polymarket.js"
+    },
+    "./route": {
+      "types": "./dist/route.d.ts",
+      "default": "./dist/route.js"
+    },
+    "./relay": {
+      "types": "./dist/relay.d.ts",
+      "default": "./dist/relay.js"
+    }
+  },
+  "dependencies": {
+    "openapi-fetch": "0.17.0",
+    "ws": "8.21.0"
+  },
+  "description": "Atreides TypeScript SDK"
+}

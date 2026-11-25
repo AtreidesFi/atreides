@@ -1,0 +1,885 @@
+# The schemas of the vault endpoints (12 §15.4.1; 03 §13.1). Decimals are strings, instants are RFC 3339 with Z, ids are
+# UUIDv7. The enums repeat the registries of 12 §15.1 (@atr/vaults); the vault screens' fixtures are typed from this file
+# (12 §16.2). A vault account's address and the LP's identity never appear in a public response (PSP-02).
+VaultDecOrNull:
+  description: A canonical decimal, or null.
+  oneOf:
+    - $ref: ./primitives.yaml#/DecStr
+    - type: "null"
+VaultInstantOrNull:
+  description: A moment in UTC, or null.
+  oneOf:
+    - $ref: ./primitives.yaml#/Instant
+    - type: "null"
+VaultKind:
+  type: string
+  description: >-
+    How the vault is run. `option1` is a venue account of ours with a trader and an LP seat and a rule seat between them;
+    `venue_native` and `contract` are the venue's own vault; `record` is a track record without custody; `house` is run
+    by us.
+  enum: [option1, record, house, venue_native, contract]
+VaultClass:
+  type: string
+  enum: [user, pro]
+VaultShelf:
+  type: string
+  description: The risk shelf the vault is listed on.
+  enum: [conservative, balanced, aggressive]
+VaultStatus:
+  type: string
+  enum: [created, stake_in, open, trading, notice, winding_down, closed]
+VaultTradingState:
+  type: string
+  enum: [active, paused]
+VaultCloseReason:
+  type: string
+  enum:
+    - abandoned
+    - manager_orderly
+    - notice_ended
+    - stake_below_floor
+    - inactive_manager
+    - last_lp_left
+    - drawdown_unresumed
+PassportMark:
+  type: string
+  description: What a closed vault leaves on its manager's passport.
+  enum: [closed_early, wound_down_by_guardian]
+SeatImplementation:
+  type: string
+  description: How the rule seat is built on this venue.
+  enum:
+    - hl_native_multisig
+    - grvt_native_multisig
+    - safe
+    - txflow_multisig
+    - cosmos_multisig
+    - mpc_threshold
+    - custodian_policy
+    - none
+AccountSeatRole:
+  type: string
+  enum: [lp, stake]
+VaultAccountStatus:
+  type: string
+  enum: [proposed, screening, setup, ready, active, frozen, exiting, closed, refused]
+RedemptionStatus:
+  type: string
+  enum:
+    - requested
+    - queued
+    - unwinding
+    - guardian_closing
+    - priced
+    - awaiting_lp
+    - cosigned
+    - submitted
+    - confirmed
+    - reconciled
+    - refused
+    - cancelled
+    - halted
+SeatActionKind:
+  type: string
+  enum:
+    - register_trade_key
+    - register_guardian_key
+    - approve_builder_fee
+    - fund_venue_account
+    - pay_performance_fee
+    - redeem
+    - wind_down_return
+    - revoke_trade_key
+    - resume_openings
+    - change_lp_address
+    - address_book_add
+    - custodian_approve
+SeatRequestStatus:
+  type: string
+  enum: [pending_lp, lp_signed, submitted, done, expired, declined, failed]
+VaultCapability:
+  type: string
+  enum:
+    - own_and_restrict
+    - trade_key
+    - guardian_key
+    - guardian_cancel
+    - guardian_close
+    - guardian_revoke
+    - builder_fee
+    - redeem_destination_lock
+    - depositor_restriction
+    - perf_fee_collection
+    - management_fee
+    - deposit_asset_usdc
+    - admin_keys_assessed
+MatrixVerdict:
+  type: string
+  description: '`yes_pending` is shown as "to be proven" with the probe or question named, never as a plain yes.'
+  enum: [yes, yes_pending, no, unknown, n_a]
+EvidenceKind:
+  type: string
+  enum: [test, venue_answer]
+MatrixReadiness:
+  type: string
+  enum: [works_now, one_time_setup, needs_application, needs_entity, real_constraint]
+BreachKind:
+  type: string
+  enum:
+    - instrument_not_allowed
+    - leverage_above_max
+    - position_above_max
+    - thin_market_cap
+    - opening_while_paused
+    - stake_below_floor
+    - outflow_without_seat
+GuardianActionKind:
+  type: string
+  enum:
+    - cancel_openings
+    - cancel_all
+    - close_reduce_only
+    - pause_openings
+    - pause_money_moves
+    - lift_lockup
+    - request_revocation
+    - notify
+    - vault_transition
+GuardianTriggerKind:
+  type: string
+  enum:
+    - mandate_breach
+    - drawdown_stop
+    - drawdown_unresumed
+    - repeated_breach
+    - redemption_overdue
+    - inactive_quiet
+    - inactive_wind_down
+    - notice_ended
+    - stake_below_floor
+    - circuit_breaker
+    - kyt_case
+    - nav_stale
+VaultGrain:
+  type: string
+  description: The spacing of index points. `minute` only for ranges of two days or less.
+  enum: [minute, hour, day]
+VaultDay:
+  type: string
+  description: A UTC calendar day.
+  pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+  examples: ["2026-11-07"]
+VaultSha256:
+  type: string
+  description: A SHA-256 as 64 lowercase hex digits.
+  pattern: "^[0-9a-f]{64}$"
+  examples: ["9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"]
+MandateDoc:
+  type: object
+  description: >-
+    The mandate: every limit the vault trades and charges under. Its SHA-256 is the mandate's identity, and nothing in it
+    is hidden from a depositor (LPR-01).
+  required:
+    - schema
+    - kind
+    - cls
+    - venue
+    - instruments
+    - maxLeverage
+    - maxPositionNotional
+    - thinMarketCap
+    - drawdownStop
+    - managerStakeMin
+    - performanceFee
+    - platformShareOfPerformanceFee
+    - managementFee
+    - ourFeeCap
+    - capacityCap
+    - cashBuffer
+    - redemptionWindow
+    - lockupMs
+    - minDeposit
+    - smallestOrderFraction
+    - noticePeriodMs
+    - declaredActivity
+    - tradingPath
+    - privacy
+    - shelf
+    - feeAddresses
+    - depegThreshold
+    - depositAsset
+  additionalProperties: false
+  properties:
+    schema:
+      const: mandate/v1
+    kind:
+      $ref: "#/VaultKind"
+    cls:
+      $ref: "#/VaultClass"
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instruments:
+      type: array
+      description: Sorted ascending, unique.
+      items:
+        type: string
+    maxLeverage:
+      type: number
+    maxPositionNotional:
+      $ref: ./primitives.yaml#/DecStr
+    thinMarketCap:
+      $ref: ./primitives.yaml#/DecStr
+    drawdownStop:
+      $ref: ./primitives.yaml#/DecStr
+    managerStakeMin:
+      $ref: ./primitives.yaml#/DecStr
+    performanceFee:
+      $ref: ./primitives.yaml#/DecStr
+    platformShareOfPerformanceFee:
+      $ref: ./primitives.yaml#/DecStr
+    managementFee:
+      $ref: ./primitives.yaml#/DecStr
+    ourFeeCap:
+      $ref: ./primitives.yaml#/DecStr
+    capacityCap:
+      $ref: ./primitives.yaml#/DecStr
+    cashBuffer:
+      $ref: ./primitives.yaml#/DecStr
+    redemptionWindow:
+      type: string
+      enum: [daily, custodian_cycle, venue_rules]
+    lockupMs:
+      type: integer
+      minimum: 0
+    minDeposit:
+      $ref: ./primitives.yaml#/DecStr
+    smallestOrderFraction:
+      $ref: ./primitives.yaml#/DecStr
+    noticePeriodMs:
+      type: integer
+      minimum: 0
+    declaredActivity:
+      type: object
+      required: [maxQuietMs, windDownAfterMs]
+      additionalProperties: false
+      properties:
+        maxQuietMs:
+          type: integer
+          minimum: 0
+        windDownAfterMs:
+          type: integer
+          minimum: 0
+    tradingPath:
+      type: string
+      enum: [gateway, direct]
+    privacy:
+      description: What the public sees of the vault's positions.
+      oneOf:
+        - type: object
+          required: [kind]
+          additionalProperties: false
+          properties:
+            kind:
+              const: metrics_only
+        - type: object
+          required: [kind, delayMs]
+          additionalProperties: false
+          properties:
+            kind:
+              const: positions_delayed
+            delayMs:
+              type: integer
+              minimum: 0
+    shelf:
+      $ref: "#/VaultShelf"
+    feeAddresses:
+      type: object
+      required: [manager, platform]
+      additionalProperties: false
+      properties:
+        manager:
+          type: string
+        platform:
+          type: string
+    depegThreshold:
+      $ref: ./primitives.yaml#/DecStr
+    depositAsset:
+      const: usdc
+VaultSummary:
+  type: object
+  description: One vault on a shelf. A stale leg makes `nav` null, and a screen shows a gap, never a number.
+  required:
+    - id
+    - name
+    - managerHandle
+    - kind
+    - cls
+    - shelf
+    - venue
+    - status
+    - tradingState
+    - nav
+    - navAt
+    - index
+    - returnSinceStart
+    - return30d
+    - maxDrawdown
+    - sharpe90d
+    - capacityCap
+    - capacityUsed
+    - managerStakeShare
+    - lpCount
+    - historyDays
+    - verified
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    name:
+      type: string
+    managerHandle:
+      type: string
+      description: The manager's community handle; never an address or a real name (PSP-02).
+    kind:
+      $ref: "#/VaultKind"
+    cls:
+      $ref: "#/VaultClass"
+    shelf:
+      $ref: "#/VaultShelf"
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    status:
+      $ref: "#/VaultStatus"
+    tradingState:
+      $ref: "#/VaultTradingState"
+    nav:
+      description: The sum of the fresh NAVs; null when a leg is stale.
+      $ref: "#/VaultDecOrNull"
+    navAt:
+      $ref: "#/VaultInstantOrNull"
+    index:
+      description: The latest index value.
+      $ref: ./primitives.yaml#/DecStr
+    returnSinceStart:
+      $ref: "#/VaultDecOrNull"
+    return30d:
+      $ref: "#/VaultDecOrNull"
+    maxDrawdown:
+      $ref: ./primitives.yaml#/DecStr
+    sharpe90d:
+      description: Null under 30 days of history.
+      $ref: "#/VaultDecOrNull"
+    capacityCap:
+      $ref: ./primitives.yaml#/DecStr
+    capacityUsed:
+      $ref: "#/VaultDecOrNull"
+    managerStakeShare:
+      $ref: "#/VaultDecOrNull"
+    lpCount:
+      type: integer
+      minimum: 0
+    historyDays:
+      type: integer
+      minimum: 0
+    verified:
+      type: boolean
+      description: >-
+        True for `option1`, `house` and `contract` vaults, whose NAV comes from venue reads under our seat; false for
+        `record`.
+VaultTerms:
+  type: object
+  description: Every term and risk parameter of the vault, shown before anything else (LPR-01).
+  required: [mandateSha256, mandate, redemption, stops, fees, enforcement]
+  properties:
+    mandateSha256:
+      $ref: "#/VaultSha256"
+    mandate:
+      $ref: "#/MandateDoc"
+    redemption:
+      type: object
+      required: [instantUpTo, window, cutoffUtc, lockupHours]
+      properties:
+        instantUpTo:
+          $ref: ./primitives.yaml#/DecStr
+        window:
+          type: string
+          enum: [daily, custodian_cycle, venue_rules]
+        cutoffUtc:
+          const: "00:00"
+        lockupHours:
+          type: number
+    stops:
+      type: object
+      required:
+        - drawdownStop
+        - cashBuffer
+        - noticeDays
+        - inactiveNotifyDays
+        - inactiveWindDownDays
+        - capacityCap
+        - minDeposit
+        - thinMarketCap
+        - depegThreshold
+      properties:
+        drawdownStop:
+          $ref: ./primitives.yaml#/DecStr
+        cashBuffer:
+          $ref: ./primitives.yaml#/DecStr
+        noticeDays:
+          type: number
+        inactiveNotifyDays:
+          type: number
+        inactiveWindDownDays:
+          type: number
+        capacityCap:
+          $ref: ./primitives.yaml#/DecStr
+        minDeposit:
+          $ref: ./primitives.yaml#/DecStr
+        thinMarketCap:
+          $ref: ./primitives.yaml#/DecStr
+        depegThreshold:
+          $ref: ./primitives.yaml#/DecStr
+    fees:
+      type: object
+      required: [performanceFee, platformShare, managementFee, ourTradeFeeCap, highWaterMark, venueWithdrawFee]
+      properties:
+        performanceFee:
+          $ref: ./primitives.yaml#/DecStr
+        platformShare:
+          $ref: ./primitives.yaml#/DecStr
+        managementFee:
+          $ref: ./primitives.yaml#/DecStr
+        ourTradeFeeCap:
+          $ref: ./primitives.yaml#/DecStr
+        highWaterMark:
+          const: per_lp_by_lots
+        venueWithdrawFee:
+          $ref: "#/VaultDecOrNull"
+    enforcement:
+      type: object
+      description: >-
+        How the mandate is enforced: by our gateway before the trade, or after the trade with the measured delay
+        (ENF-03, VT-013).
+      required: [tradingPath, afterTradeDetectionMs, guardianReduceOnlyIsOurs]
+      properties:
+        tradingPath:
+          type: string
+          enum: [gateway, direct]
+        afterTradeDetectionMs:
+          type: [integer, "null"]
+          minimum: 0
+        guardianReduceOnlyIsOurs:
+          type: boolean
+          description: True where the guardian's reduce-only rule is ours, not the venue's.
+MatrixCellJson:
+  type: object
+  description: One capability of one venue and kind, with its verdict and what backs it.
+  required: [venue, kind, capability, verdict, evidenceKind, pendingOn, note]
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    kind:
+      $ref: "#/VaultKind"
+    capability:
+      $ref: "#/VaultCapability"
+    verdict:
+      $ref: "#/MatrixVerdict"
+    evidenceKind:
+      oneOf:
+        - $ref: "#/EvidenceKind"
+        - type: "null"
+    pendingOn:
+      type: [string, "null"]
+      description: The probe or question a `yes_pending` or `unknown` verdict waits on.
+    note:
+      type: string
+MatrixRowJson:
+  type: object
+  required: [venue, kind, implementation, readiness, offered]
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    kind:
+      $ref: "#/VaultKind"
+    implementation:
+      $ref: "#/SeatImplementation"
+    readiness:
+      $ref: "#/MatrixReadiness"
+    offered:
+      type: boolean
+      description: True when every capability the kind's flows need is `yes`.
+VaultMatrixRow:
+  type: object
+  description: The matrix row of one vault's venue and kind.
+  required: [implementation, cells]
+  properties:
+    implementation:
+      $ref: "#/SeatImplementation"
+    cells:
+      type: array
+      items:
+        $ref: "#/MatrixCellJson"
+VaultWhoCanDoWhat:
+  type: object
+  description: One party's line of the table of 12 §3.2, rendered for this vault's implementation.
+  required: [party, can, cannot]
+  properties:
+    party:
+      type: string
+      enum: [trader, lp, rule_seat, guardian, trader_and_lp]
+    can:
+      type: string
+    cannot:
+      type: string
+VaultRuleSeat:
+  type: object
+  description: What the rule seat runs and enforces.
+  required: [imageSha384, policySha256]
+  properties:
+    imageSha384:
+      type: [string, "null"]
+      pattern: "^[0-9a-f]{96}$"
+    policySha256:
+      oneOf:
+        - $ref: "#/VaultSha256"
+        - type: "null"
+VaultDetail:
+  description: A vault with its terms, its matrix row and its state.
+  allOf:
+    - $ref: "#/VaultSummary"
+    - type: object
+      required:
+        - terms
+        - matrixRow
+        - whoCanDoWhat
+        - ruleSeat
+        - drawdownNow
+        - breachCount
+        - guardianActionCount
+        - noticeEndsAt
+        - closeReason
+        - passportMark
+      properties:
+        terms:
+          $ref: "#/VaultTerms"
+        matrixRow:
+          $ref: "#/VaultMatrixRow"
+        whoCanDoWhat:
+          type: array
+          items:
+            $ref: "#/VaultWhoCanDoWhat"
+        ruleSeat:
+          description: Null where the venue has no rule seat (a record vault).
+          oneOf:
+            - $ref: "#/VaultRuleSeat"
+            - type: "null"
+        drawdownNow:
+          $ref: "#/VaultDecOrNull"
+        breachCount:
+          type: integer
+          minimum: 0
+        guardianActionCount:
+          type: integer
+          minimum: 0
+        noticeEndsAt:
+          $ref: "#/VaultInstantOrNull"
+        closeReason:
+          oneOf:
+            - $ref: "#/VaultCloseReason"
+            - type: "null"
+        passportMark:
+          oneOf:
+            - $ref: "#/PassportMark"
+            - type: "null"
+IndexPoint:
+  type: object
+  required: [at, index, drawdown, stale]
+  properties:
+    at:
+      $ref: ./primitives.yaml#/Instant
+    index:
+      $ref: ./primitives.yaml#/DecStr
+    drawdown:
+      $ref: ./primitives.yaml#/DecStr
+    stale:
+      type: boolean
+      description: True when a venue read behind this point was stale; the chart shows a gap.
+VaultIndex:
+  type: object
+  required: [points]
+  properties:
+    points:
+      type: array
+      items:
+        $ref: "#/IndexPoint"
+VaultLogEvent:
+  type: object
+  required: [kind, at, event, data]
+  properties:
+    kind:
+      const: event
+    at:
+      $ref: ./primitives.yaml#/Instant
+    event:
+      type: string
+    data:
+      type: object
+      additionalProperties:
+        type: [string, number, boolean, "null"]
+VaultLogBreach:
+  type: object
+  required: [kind, at, breach, instrument, value, limit]
+  properties:
+    kind:
+      const: breach
+    at:
+      $ref: ./primitives.yaml#/Instant
+    breach:
+      $ref: "#/BreachKind"
+    instrument:
+      type: [string, "null"]
+    value:
+      $ref: "#/VaultDecOrNull"
+    limit:
+      $ref: "#/VaultDecOrNull"
+VaultLogGuardian:
+  type: object
+  required: [kind, at, action, trigger, outcome]
+  properties:
+    kind:
+      const: guardian
+    at:
+      $ref: ./primitives.yaml#/Instant
+    action:
+      $ref: "#/GuardianActionKind"
+    trigger:
+      $ref: "#/GuardianTriggerKind"
+    outcome:
+      type: string
+      enum: [done, partial, retrying, failed]
+VaultLogEntry:
+  description: A public event, a breach or a guardian action, told by `kind`.
+  oneOf:
+    - $ref: "#/VaultLogEvent"
+    - $ref: "#/VaultLogBreach"
+    - $ref: "#/VaultLogGuardian"
+  discriminator:
+    propertyName: kind
+    mapping:
+      event: "#/VaultLogEvent"
+      breach: "#/VaultLogBreach"
+      guardian: "#/VaultLogGuardian"
+VaultExposureRow:
+  type: object
+  required: [instrument, side, notional, shareOfNav]
+  properties:
+    instrument:
+      type: string
+    side:
+      type: string
+      enum: [long, short]
+    notional:
+      $ref: ./primitives.yaml#/DecStr
+    shareOfNav:
+      $ref: ./primitives.yaml#/DecStr
+VaultExposure:
+  type: object
+  description: Positions by market, as of now minus the vault's privacy delay.
+  required: [asOf, byMarket]
+  properties:
+    asOf:
+      $ref: ./primitives.yaml#/Instant
+    byMarket:
+      type: array
+      items:
+        $ref: "#/VaultExposureRow"
+VaultRecord:
+  type: object
+  description: The hash of one day's record of one vault account (NAV-03).
+  required: [vaultAccountRef, day, sha256]
+  properties:
+    vaultAccountRef:
+      type: string
+      description: An opaque per-vault ordinal, never an address (PSP-02).
+    day:
+      $ref: "#/VaultDay"
+    sha256:
+      $ref: "#/VaultSha256"
+VaultMatrix:
+  type: object
+  required: [cells, rows]
+  properties:
+    cells:
+      type: array
+      items:
+        $ref: "#/MatrixCellJson"
+    rows:
+      type: array
+      items:
+        $ref: "#/MatrixRowJson"
+VaultLot:
+  type: object
+  required: [lotId, amount, units, mark, creditedAt, lockedUntil]
+  properties:
+    lotId:
+      $ref: ./primitives.yaml#/Uuid
+    amount:
+      $ref: ./primitives.yaml#/DecStr
+    units:
+      $ref: ./primitives.yaml#/DecStr
+    mark:
+      $ref: ./primitives.yaml#/DecStr
+    creditedAt:
+      $ref: ./primitives.yaml#/Instant
+    lockedUntil:
+      $ref: ./primitives.yaml#/Instant
+VaultOpenRedemption:
+  type: object
+  required: [id, status, path, net, deadlineAt]
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    status:
+      $ref: "#/RedemptionStatus"
+    path:
+      type: [string, "null"]
+      enum: [instant, queued, null]
+    net:
+      $ref: "#/VaultDecOrNull"
+    deadlineAt:
+      $ref: "#/VaultInstantOrNull"
+VaultStatement:
+  type: object
+  required: [month, sha256]
+  properties:
+    month:
+      type: string
+      pattern: "^[0-9]{4}-[0-9]{2}$"
+    sha256:
+      $ref: "#/VaultSha256"
+MyVaultAccount:
+  type: object
+  description: One of the caller's seats in a vault, with its lots, open redemptions and statements.
+  required:
+    - vaultAccountId
+    - vaultId
+    - seatRole
+    - status
+    - nav
+    - navAt
+    - perfAccrued
+    - lots
+    - redemptionAddress
+    - openRedemptions
+    - statements
+  properties:
+    vaultAccountId:
+      $ref: ./primitives.yaml#/Uuid
+    vaultId:
+      $ref: ./primitives.yaml#/Uuid
+    seatRole:
+      $ref: "#/AccountSeatRole"
+    status:
+      $ref: "#/VaultAccountStatus"
+    nav:
+      $ref: "#/VaultDecOrNull"
+    navAt:
+      $ref: "#/VaultInstantOrNull"
+    perfAccrued:
+      $ref: "#/VaultDecOrNull"
+    lots:
+      type: array
+      items:
+        $ref: "#/VaultLot"
+    redemptionAddress:
+      type: string
+      description: The caller's own address; shown only to the caller.
+    openRedemptions:
+      type: array
+      items:
+        $ref: "#/VaultOpenRedemption"
+    statements:
+      type: array
+      items:
+        $ref: "#/VaultStatement"
+SeatRequestJson:
+  type: object
+  description: A request the rule seat or the manager made of the caller's seat, waiting for the caller to sign.
+  required: [id, vaultAccountId, action, reason, status, expiresAt]
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    vaultAccountId:
+      $ref: ./primitives.yaml#/Uuid
+    action:
+      $ref: "#/SeatActionKind"
+    reason:
+      type: string
+    status:
+      $ref: "#/SeatRequestStatus"
+    expiresAt:
+      $ref: ./primitives.yaml#/Instant
+MyVaults:
+  type: object
+  required: [accounts, managed, requests]
+  properties:
+    accounts:
+      type: array
+      items:
+        $ref: "#/MyVaultAccount"
+    managed:
+      type: array
+      description: The vaults the caller manages.
+      items:
+        $ref: "#/VaultSummary"
+    requests:
+      type: array
+      items:
+        $ref: "#/SeatRequestJson"
+
+VaultRedemptionPlan:
+  description: The successfully planned FIFO redemption slice of 12 §8.10.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required: [path, lots, gross, fee, feeSplit, net, capped]
+      properties:
+        path: { const: instant }
+        lots:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [lotId, units, gross, fee]
+            properties:
+              lotId: { $ref: ./primitives.yaml#/Uuid }
+              units: { $ref: ./primitives.yaml#/DecStr }
+              gross: { $ref: ./primitives.yaml#/DecStr }
+              fee: { $ref: ./primitives.yaml#/DecStr }
+        gross: { $ref: ./primitives.yaml#/DecStr }
+        fee: { $ref: ./primitives.yaml#/DecStr }
+        feeSplit:
+          type: object
+          additionalProperties: false
+          required: [platform, manager]
+          properties:
+            platform: { $ref: ./primitives.yaml#/DecStr }
+            manager: { $ref: ./primitives.yaml#/DecStr }
+        net: { $ref: ./primitives.yaml#/DecStr }
+        capped: { type: boolean }
+    - type: object
+      additionalProperties: false
+      required: [path, lots, fraction, deadlineAt, capped]
+      properties:
+        path: { const: queued }
+        lots:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [lotId, units]
+            properties:
+              lotId: { $ref: ./primitives.yaml#/Uuid }
+              units: { $ref: ./primitives.yaml#/DecStr }
+        fraction: { $ref: ./primitives.yaml#/DecStr }
+        deadlineAt: { $ref: ./primitives.yaml#/Instant }
+        capped: { type: boolean }

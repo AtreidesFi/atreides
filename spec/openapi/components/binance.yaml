@@ -1,0 +1,155 @@
+Product:
+  type: string
+  enum: [spot, usdm]
+RegisterBrowserKey:
+  type: object
+  additionalProperties: false
+  required: [products, publicKeyFingerprint, uid, readback, positionMode]
+  properties:
+    products:
+      type: array
+      minItems: 1
+      maxItems: 2
+      uniqueItems: true
+      items:
+        $ref: "#/Product"
+    publicKeyFingerprint:
+      type: string
+      pattern: "^[0-9a-f]{64}$"
+    uid:
+      type: string
+      pattern: "^[1-9][0-9]{0,23}$"
+    positionMode:
+      type: string
+      enum: [one_way, hedge, not_applicable]
+    readback:
+      type: object
+      additionalProperties: false
+      required:
+        - ipRestrict
+        - enableReading
+        - enableSpotAndMarginTrading
+        - enableFutures
+        - enableMargin
+        - enableWithdrawals
+        - enableInternalTransfer
+        - permitsUniversalTransfer
+        - enableVanillaOptions
+        - enablePortfolioMarginTrading
+        - enableFixApiTrade
+        - enableFixReadOnly
+      properties:
+        ipRestrict: { type: boolean }
+        enableReading: { type: boolean }
+        enableSpotAndMarginTrading: { type: boolean }
+        enableFutures: { type: boolean }
+        enableMargin: { type: boolean }
+        enableWithdrawals: { type: boolean }
+        enableInternalTransfer: { type: boolean }
+        permitsUniversalTransfer: { type: boolean }
+        enableVanillaOptions: { type: boolean }
+        enablePortfolioMarginTrading: { type: boolean }
+        enableFixApiTrade: { type: boolean }
+        enableFixReadOnly: { type: boolean }
+        createTime: { type: integer, minimum: 0 }
+BrowserKeyRegistered:
+  type: object
+  required: [venueAccountId, connectionState, countsForRewards]
+  properties:
+    venueAccountId:
+      $ref: ./primitives.yaml#/Uuid
+    connectionState: { const: browser_key_registered }
+    countsForRewards: { const: false }
+DeviceOrder:
+  type: object
+  additionalProperties: false
+  required: [venueAccountId, product, clientOrderId, intent]
+  properties:
+    venueAccountId:
+      $ref: ./primitives.yaml#/Uuid
+    product:
+      $ref: "#/Product"
+    clientOrderId:
+      $ref: ./primitives.yaml#/ClientOrderId
+    intent:
+      $ref: ./orders.yaml#/PlaceOrderIntent
+DeviceOrderCheck:
+  type: object
+  required: [orderId, venueClientOrderId, params, bandPx, checkToken, validUntil]
+  properties:
+    orderId:
+      $ref: ./primitives.yaml#/Uuid
+    venueClientOrderId: { type: string }
+    params:
+      type: array
+      items:
+        type: array
+        minItems: 2
+        maxItems: 2
+        items: { type: string }
+    bandPx:
+      $ref: ./primitives.yaml#/DecStr
+    checkToken: { type: string, pattern: "^[A-Za-z0-9_-]{43}$" }
+    validUntil: { type: integer, minimum: 0 }
+DeviceOrderOutcome:
+  type: object
+  additionalProperties: false
+  required: [checkToken, outcome]
+  properties:
+    checkToken: { type: string, pattern: "^[A-Za-z0-9_-]{43}$" }
+    outcome:
+      type: string
+      enum: [sent_ack, sent_reject, sent_unknown, not_sent]
+    venueAnswer: { type: string, maxLength: 65536 }
+DeviceOrderDisplay:
+  type: object
+  required: [state]
+  properties:
+    state:
+      {
+        type: string,
+        enum: [pending, accepted, resting, partially_filled, filled, cancelled, rejected, unknown, unverified],
+      }
+Status:
+  type: object
+  required: [phase, products, codesLive, fastApiLive]
+  properties:
+    phase: { type: string, enum: [BN0, BN1, BN2] }
+    products:
+      type: object
+      required: [spot, usdm]
+      properties:
+        spot:
+          $ref: ./primitives.yaml#/VenueState
+        usdm:
+          $ref: ./primitives.yaml#/VenueState
+    codesLive:
+      type: object
+      required: [spot, usdm]
+      properties:
+        spot: { type: boolean }
+        usdm: { type: boolean }
+    fastApiLive: { type: boolean }
+Disconnected:
+  type: object
+  required: [deleteOnBinanceUrl]
+  properties:
+    deleteOnBinanceUrl: { type: string, format: uri }
+FastGrant:
+  type: object
+  additionalProperties: false
+  required: [state, products, credentialId, errorCode]
+  properties:
+    state:
+      type: string
+      enum:
+        [authorizing, token_received, key_requested, key_created, checked, active, refused, failed, revoked, expired]
+    products:
+      type: array
+      items: { type: string, enum: [spot, usdm] }
+    credentialId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    errorCode:
+      type: [string, "null"]

@@ -1,0 +1,154 @@
+# Telegram and Discord identities (03 §4.6, §7.1). Owner 03.
+# Operations only, no handlers (ORC-F01). Schemas are in ../components/.
+identities:
+  get:
+    operationId: listIdentities
+    summary: List the Telegram and Discord identities linked to the user.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The identities.
+        headers:
+          X-Request-Id: &a1
+            $ref: ../components/headers.yaml#/X-Request-Id
+          RateLimit-Limit: &a2
+            $ref: ../components/headers.yaml#/RateLimit-Limit
+          RateLimit-Remaining: &a3
+            $ref: ../components/headers.yaml#/RateLimit-Remaining
+          RateLimit-Reset: &a4
+            $ref: ../components/headers.yaml#/RateLimit-Reset
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  type: array
+                  items:
+                    $ref: ../components/identity.yaml#/Identity
+            example:
+              ok: true
+              data:
+                - &a5
+                  identityId: 01936f2e-7c3d-7e44-a1b3-6d5c4b3a2918
+                  provider: telegram
+                  handle: trader_one
+                  linkedAt: 2026-11-07T09:30:00.000Z
+identitiesTelegram:
+  post:
+    operationId: linkTelegram
+    summary: Link a Telegram account to the user.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - telegram_auth_invalid
+      - identity_linked_elsewhere
+    security: &a6
+      - session: []
+    parameters:
+      - &a7
+        $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/identity.yaml#/LinkTelegramRequest
+          example:
+            fields:
+              id: "123456789"
+              first_name: Ada
+              username: trader_one
+              auth_date: "1794043800"
+              hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    responses:
+      "200":
+        description: The linked identity.
+        headers:
+          X-Request-Id: *a1
+          RateLimit-Limit: *a2
+          RateLimit-Remaining: *a3
+          RateLimit-Reset: *a4
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/Identity
+                - &a8
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: *a5
+identityUnlink:
+  post:
+    operationId: unlinkIdentity
+    summary: Unlink an identity.
+    description: Never the last way to sign in.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - last_sign_in_method
+    security: *a6
+    parameters:
+      - *a7
+      - name: identityId
+        in: path
+        required: true
+        description: The identity to unlink.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: Unlinked.
+        headers:
+          X-Request-Id: *a1
+          RateLimit-Limit: *a2
+          RateLimit-Remaining: *a3
+          RateLimit-Reset: *a4
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/Empty
+                - *a8
+            example:
+              ok: true
+              data: {}

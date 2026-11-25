@@ -1,0 +1,1083 @@
+# Orders and execution (03 §7.5). Sources only: no handlers.
+orders:
+  post:
+    operationId: placeOrder
+    summary: Place an order.
+    description: An intent the gateway signs, or a relay payload the user's own key signed. A reduce-only order is
+      rate-classed `protect` from its body, any other `order`. Sending the same `clientOrderId` with the same body
+      returns the stored order. With `strategyRunId` the strategy run's refusals `strategy_run_not_live`,
+      `strategy_killed` and `strategy_run_cap` also apply.
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: dynamic
+    x-idempotency: client_order_id
+    x-refusals:
+      - terms_not_accepted
+      - venue_closed
+      - venue_reduce_only
+      - venue_paused
+      - kill_switch_active
+      - rate_limited_account
+      - fee_approval_missing
+      - fee_code_missing
+      - fee_above_cap
+      - key_expiring
+      - agent_expired
+      - key_rights_refused
+      - insufficient_margin
+      - tick_size
+      - lot_size
+      - min_notional
+      - price_band
+      - stale_price
+      - limit_exceeded
+      - venue_rejected
+      - unknown_outcome
+      - not_placed
+      - instrument_halted
+      - relay_signer_mismatch
+      - relay_refused
+      - idempotency_conflict
+      - account_not_bound
+      - account_not_connected
+      - relay_payload_invalid
+      - strategy_run_not_live
+      - strategy_killed
+      - strategy_run_cap
+      - route_no_candidate
+      - routing_unavailable_testnet
+      - insufficient_depth
+      - route_requote
+      - route_leg_invalid
+      - route_not_live
+      - not_found
+      - feature_unavailable
+      - order_type_unsupported
+      - key_frozen
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/orders.yaml#/PlaceOrder
+          example:
+            accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+            clientOrderId: bot-7-000123
+            instrumentId: hyperliquid:BTC
+            side: buy
+            type: limit
+            tif: gtc
+            price: "65000"
+            size: "0.01"
+            reduceOnly: false
+    responses:
+      "200":
+        description: The order, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      oneOf:
+                        - $ref: ../components/orders.yaml#/Order
+                        - $ref: ../components/orders.yaml#/DryRunResult
+                - $ref: ../components/envelope.yaml#/Refusal
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      $ref: ../components/route.yaml#/Route
+            example:
+              ok: true
+              data:
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                routeId: null
+                clientOrderId: bot-7-000123
+                accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                venue: hyperliquid
+                instrumentId: hyperliquid:BTC
+                cls: perp
+                mode: gateway
+                keyPlace: enclave
+                origin: sdk
+                side: buy
+                type: limit
+                tif: gtc
+                price: "65000"
+                size: "0.01"
+                reduceOnly: false
+                state: resting
+                filledSize: "0"
+                avgPrice: null
+                venueOrderId: "184467"
+                fee:
+                  rate: "0.00025"
+                  field: "builder: {b, f}"
+                  asked: null
+                reject: null
+                finalReason: null
+                unfilledByBand: null
+                unknown: null
+                userAction: null
+                attached:
+                  tp: null
+                  sl: null
+                executionReport: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:05.000Z
+  get:
+    operationId: listOrders
+    summary: List orders, newest first by `createdAt`.
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - cursor_invalid
+      - account_not_bound
+    x-mcp-tool:
+      name: my_orders
+      description: "List the user's orders and their state. An unknown order may have reached the venue; do not resend."
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/AccountId
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: state
+        in: query
+        required: false
+        description: Only orders in these states, as a comma list.
+        schema:
+          type: array
+          items:
+            $ref: ../components/primitives.yaml#/OrderState
+        style: form
+        explode: false
+      - name: instrumentId
+        in: query
+        required: false
+        description: Only this instrument.
+        schema:
+          type: string
+      - $ref: ../components/parameters.yaml#/From
+      - $ref: ../components/parameters.yaml#/To
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of orders.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/orders.yaml#/Order
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                  routeId: null
+                  clientOrderId: bot-7-000123
+                  accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                  venue: hyperliquid
+                  instrumentId: hyperliquid:BTC
+                  cls: perp
+                  mode: gateway
+                  keyPlace: enclave
+                  origin: sdk
+                  side: buy
+                  type: limit
+                  tif: gtc
+                  price: "65000"
+                  size: "0.01"
+                  reduceOnly: false
+                  state: resting
+                  filledSize: "0"
+                  avgPrice: null
+                  venueOrderId: "184467"
+                  fee:
+                    rate: "0.00025"
+                    field: "builder: {b, f}"
+                    asked: null
+                  reject: null
+                  finalReason: null
+                  unfilledByBand: null
+                  unknown: null
+                  userAction: null
+                  attached:
+                    tp: null
+                    sl: null
+                  executionReport: null
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  updatedAt: 2026-11-07T09:30:05.000Z
+              nextCursor: null
+order:
+  get:
+    operationId: getOrder
+    summary: Read one order.
+    description: An `unknown` order shows the sweeper's latest answer.
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - account_not_bound
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: clientOrderId
+        in: path
+        required: true
+        description: The caller's id of the order.
+        schema:
+          $ref: ../components/primitives.yaml#/ClientOrderId
+      - name: accountId
+        in: query
+        required: true
+        description: The venue account. A key bound to other accounts is refused with `account_not_bound`.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The order, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/Order
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                routeId: null
+                clientOrderId: bot-7-000123
+                accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                venue: hyperliquid
+                instrumentId: hyperliquid:BTC
+                cls: perp
+                mode: gateway
+                keyPlace: enclave
+                origin: sdk
+                side: buy
+                type: limit
+                tif: gtc
+                price: "65000"
+                size: "0.01"
+                reduceOnly: false
+                state: resting
+                filledSize: "0"
+                avgPrice: null
+                venueOrderId: "184467"
+                fee:
+                  rate: "0.00025"
+                  field: "builder: {b, f}"
+                  asked: null
+                reject: null
+                finalReason: null
+                unfilledByBand: null
+                unknown: null
+                userAction: null
+                attached:
+                  tp: null
+                  sl: null
+                executionReport: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:05.000Z
+cancel:
+  post:
+    operationId: cancelOrder
+    summary: Cancel an order.
+    description: "Idempotent by target: a second cancel of a cancelled order returns it."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: protect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - venue_paused
+      - relay_payload_invalid
+      - unknown_outcome
+      - venue_rejected
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: clientOrderId
+        in: path
+        required: true
+        description: The caller's id of the order.
+        schema:
+          $ref: ../components/primitives.yaml#/ClientOrderId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/orders.yaml#/CancelOrderRequest
+          example:
+            accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+    responses:
+      "200":
+        description: The order, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/Order
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                routeId: null
+                clientOrderId: bot-7-000123
+                accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                venue: hyperliquid
+                instrumentId: hyperliquid:BTC
+                cls: perp
+                mode: gateway
+                keyPlace: enclave
+                origin: sdk
+                side: buy
+                type: limit
+                tif: gtc
+                price: "65000"
+                size: "0.01"
+                reduceOnly: false
+                state: cancelled
+                filledSize: "0"
+                avgPrice: null
+                venueOrderId: "184467"
+                fee:
+                  rate: "0.00025"
+                  field: "builder: {b, f}"
+                  asked: null
+                reject: null
+                finalReason: cancelled_by_user
+                unfilledByBand: null
+                unknown: null
+                userAction: null
+                attached:
+                  tp: null
+                  sl: null
+                executionReport: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:05.000Z
+modify:
+  post:
+    operationId: modifyOrder
+    summary: Change the price or size of an order.
+    description: Rate-classed `protect` when the order is reduce-only, otherwise `order`.
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: dynamic
+    x-idempotency: target
+    x-refusals:
+      - venue_closed
+      - venue_reduce_only
+      - venue_paused
+      - kill_switch_active
+      - rate_limited_account
+      - fee_approval_missing
+      - fee_code_missing
+      - fee_above_cap
+      - key_expiring
+      - agent_expired
+      - key_rights_refused
+      - insufficient_margin
+      - tick_size
+      - lot_size
+      - min_notional
+      - price_band
+      - stale_price
+      - limit_exceeded
+      - venue_rejected
+      - unknown_outcome
+      - not_placed
+      - instrument_halted
+      - relay_signer_mismatch
+      - relay_refused
+      - idempotency_conflict
+      - account_not_bound
+      - account_not_connected
+      - relay_payload_invalid
+      - feature_unavailable
+      - not_found
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: clientOrderId
+        in: path
+        required: true
+        description: The caller's id of the order.
+        schema:
+          $ref: ../components/primitives.yaml#/ClientOrderId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/orders.yaml#/ModifyOrderRequest
+          example:
+            accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+            price: "65100"
+    responses:
+      "200":
+        description: The order, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/Order
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                routeId: null
+                clientOrderId: bot-7-000123
+                accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                venue: hyperliquid
+                instrumentId: hyperliquid:BTC
+                cls: perp
+                mode: gateway
+                keyPlace: enclave
+                origin: sdk
+                side: buy
+                type: limit
+                tif: gtc
+                price: "65100"
+                size: "0.01"
+                reduceOnly: false
+                state: resting
+                filledSize: "0"
+                avgPrice: null
+                venueOrderId: "184467"
+                fee:
+                  rate: "0.00025"
+                  field: "builder: {b, f}"
+                  asked: null
+                reject: null
+                finalReason: null
+                unfilledByBand: null
+                unknown: null
+                userAction: null
+                attached:
+                  tp: null
+                  sl: null
+                executionReport: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:05.000Z
+signature:
+  post:
+    operationId: submitOrderSignature
+    summary: Give the signature for an order that waits for the user.
+    description: The user's signature over `userAction.request` (Polymarket legacy wallets).
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: client_order_id
+    x-refusals:
+      - user_action_expired
+      - not_found
+      - venue_closed
+      - venue_reduce_only
+      - venue_paused
+      - kill_switch_active
+      - rate_limited_account
+      - fee_approval_missing
+      - fee_code_missing
+      - fee_above_cap
+      - key_expiring
+      - agent_expired
+      - key_rights_refused
+      - insufficient_margin
+      - tick_size
+      - lot_size
+      - min_notional
+      - price_band
+      - stale_price
+      - limit_exceeded
+      - venue_rejected
+      - unknown_outcome
+      - not_placed
+      - instrument_halted
+      - relay_signer_mismatch
+      - relay_refused
+      - idempotency_conflict
+      - account_not_bound
+      - account_not_connected
+      - relay_payload_invalid
+      - feature_unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: clientOrderId
+        in: path
+        required: true
+        description: The caller's id of the order.
+        schema:
+          $ref: ../components/primitives.yaml#/ClientOrderId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/orders.yaml#/OrderSignatureRequest
+          example:
+            accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+            signature: "0x1b2c3d"
+    responses:
+      "200":
+        description: The order, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/Order
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                routeId: null
+                clientOrderId: bot-7-000123
+                accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                venue: hyperliquid
+                instrumentId: hyperliquid:BTC
+                cls: perp
+                mode: gateway
+                keyPlace: enclave
+                origin: sdk
+                side: buy
+                type: limit
+                tif: gtc
+                price: "65000"
+                size: "0.01"
+                reduceOnly: false
+                state: accepted
+                filledSize: "0"
+                avgPrice: null
+                venueOrderId: "184467"
+                fee:
+                  rate: "0.00025"
+                  field: "builder: {b, f}"
+                  asked: null
+                reject: null
+                finalReason: null
+                unfilledByBand: null
+                unknown: null
+                userAction: null
+                attached:
+                  tp: null
+                  sl: null
+                executionReport: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:05.000Z
+tx:
+  post:
+    operationId: submitOrderTx
+    summary: Give the transaction for an order that waits for one.
+    description:
+      "A raw transaction, a hash of one the bot sent, or a call bundle (Robinhood Chain). Answers HTTP 200 with
+      `state: pending` until the chain confirms."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: client_order_id
+    x-refusals:
+      - user_action_expired
+      - not_found
+      - venue_closed
+      - venue_reduce_only
+      - venue_paused
+      - kill_switch_active
+      - rate_limited_account
+      - fee_approval_missing
+      - fee_code_missing
+      - fee_above_cap
+      - key_expiring
+      - agent_expired
+      - key_rights_refused
+      - insufficient_margin
+      - tick_size
+      - lot_size
+      - min_notional
+      - price_band
+      - stale_price
+      - limit_exceeded
+      - venue_rejected
+      - unknown_outcome
+      - not_placed
+      - instrument_halted
+      - relay_signer_mismatch
+      - relay_refused
+      - idempotency_conflict
+      - account_not_bound
+      - account_not_connected
+      - relay_payload_invalid
+      - feature_unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: clientOrderId
+        in: path
+        required: true
+        description: The caller's id of the order.
+        schema:
+          $ref: ../components/primitives.yaml#/ClientOrderId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/orders.yaml#/OrderTxRequest
+          example:
+            accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+            payload:
+              kind: tx_hash
+              txHash: "0xdeadbeef"
+    responses:
+      "200":
+        description: The order, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/Order
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                routeId: null
+                clientOrderId: bot-7-000123
+                accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                venue: hyperliquid
+                instrumentId: hyperliquid:BTC
+                cls: perp
+                mode: gateway
+                keyPlace: enclave
+                origin: sdk
+                side: buy
+                type: limit
+                tif: gtc
+                price: "65000"
+                size: "0.01"
+                reduceOnly: false
+                state: pending
+                filledSize: "0"
+                avgPrice: null
+                venueOrderId: "184467"
+                fee:
+                  rate: "0.00025"
+                  field: "builder: {b, f}"
+                  asked: null
+                reject: null
+                finalReason: null
+                unfilledByBand: null
+                unknown: null
+                userAction: null
+                attached:
+                  tp: null
+                  sl: null
+                executionReport: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                updatedAt: 2026-11-07T09:30:05.000Z
+cancelAll:
+  post:
+    operationId: cancelAll
+    summary: Cancel every open order of an account, or of one instrument.
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: protect
+    x-idempotency: target
+    x-refusals:
+      - venue_paused
+      - unknown_outcome
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/orders.yaml#/CancelAllRequest
+          example:
+            accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+    responses:
+      "200":
+        description: How many cancels were requested, and the orders.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/CancelAllResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                requested: 1
+                orders:
+                  - orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                    routeId: null
+                    clientOrderId: bot-7-000123
+                    accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                    venue: hyperliquid
+                    instrumentId: hyperliquid:BTC
+                    cls: perp
+                    mode: gateway
+                    keyPlace: enclave
+                    origin: sdk
+                    side: buy
+                    type: limit
+                    tif: gtc
+                    price: "65000"
+                    size: "0.01"
+                    reduceOnly: false
+                    state: cancelled
+                    filledSize: "0"
+                    avgPrice: null
+                    venueOrderId: "184467"
+                    fee:
+                      rate: "0.00025"
+                      field: "builder: {b, f}"
+                      asked: null
+                    reject: null
+                    finalReason: cancelled_by_user
+                    unfilledByBand: null
+                    unknown: null
+                    userAction: null
+                    attached:
+                      tp: null
+                      sl: null
+                    executionReport: null
+                    createdAt: 2026-11-07T09:30:00.000Z
+                    updatedAt: 2026-11-07T09:30:05.000Z
+deadman:
+  post:
+    operationId: setDeadMan
+    summary: Arm, refresh or clear the dead-man timer of an account.
+    description: Open orders are cancelled when the timer runs out. `timeoutMs` 0 clears it; otherwise 5000 to 600000.
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: protect
+    x-idempotency: target
+    x-refusals:
+      - feature_unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/orders.yaml#/DeadManRequest
+          example:
+            accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+            timeoutMs: 30000
+    responses:
+      "200":
+        description: The timer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/DeadMan
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                armed: true
+                timeoutMs: 30000
+                firesAt: 2026-11-07T09:30:30.000Z
+                venueBackstop: armed
+  get:
+    operationId: listDeadMen
+    summary: List the dead-man timers.
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/AccountId
+    responses:
+      "200":
+        description: The timers.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/orders.yaml#/DeadMan
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - accountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d10
+                  armed: false
+                  timeoutMs: null
+                  firesAt: null
+                  venueBackstop: not_available
+check:
+  get:
+    operationId: preSignCheck
+    summary: Ask the gateway whether an order may be signed on the device.
+    description:
+      The gateway's pre-sign answer a device-signed page asks for. Writes the pending row, idempotent by account
+      and client order id (a GET, so `x-idempotency` is none).
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: order
+    x-idempotency: none
+    x-refusals:
+      - venue_closed
+      - venue_reduce_only
+      - venue_paused
+      - kill_switch_active
+      - rate_limited_account
+      - fee_approval_missing
+      - fee_code_missing
+      - fee_above_cap
+      - key_expiring
+      - agent_expired
+      - key_rights_refused
+      - insufficient_margin
+      - tick_size
+      - lot_size
+      - min_notional
+      - price_band
+      - stale_price
+      - limit_exceeded
+      - venue_rejected
+      - unknown_outcome
+      - not_placed
+      - instrument_halted
+      - relay_signer_mismatch
+      - relay_refused
+      - idempotency_conflict
+      - account_not_bound
+      - account_not_connected
+      - relay_payload_invalid
+      - feature_unavailable
+    x-forwards: true
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: accountId
+        in: query
+        required: true
+        description: The venue account. A key bound to other accounts is refused with `account_not_bound`.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - name: clientOrderId
+        in: query
+        required: true
+        description: The id the order will carry.
+        schema:
+          $ref: ../components/primitives.yaml#/ClientOrderId
+      - name: instrumentId
+        in: query
+        required: true
+        description: The instrument.
+        schema:
+          type: string
+      - name: side
+        in: query
+        required: true
+        description: Buy or sell.
+        schema:
+          type: string
+          enum:
+            - buy
+            - sell
+      - name: type
+        in: query
+        required: true
+        description: Order type.
+        schema:
+          type: string
+          enum:
+            - limit
+            - market
+      - name: size
+        in: query
+        required: true
+        description: The size.
+        schema:
+          $ref: ../components/primitives.yaml#/DecStr
+      - name: price
+        in: query
+        required: false
+        description: The limit price.
+        schema:
+          $ref: ../components/primitives.yaml#/DecStr
+      - name: reduceOnly
+        in: query
+        required: true
+        description: Whether the order only reduces a position.
+        schema:
+          type: boolean
+    responses:
+      "200":
+        description: The gateway's answer.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/orders.yaml#/PreSignCheck
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                allow: true
+                orderId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11
+                clientOrderId: bot-7-000123
+                bandPrice: "65325"
+                fee:
+                  rate: "0.00025"
+                  encodedRate: "25"
+                validUntil: 2026-11-07T09:30:05.000Z

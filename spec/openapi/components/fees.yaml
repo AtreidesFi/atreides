@@ -1,0 +1,237 @@
+# The fee schedule and quotes (03 §8, §10.6; 07 FeeEngine).
+FeeApproval:
+  type: object
+  required:
+    - state
+    - cap
+    - readAt
+  properties:
+    state:
+      type: string
+      enum:
+        - approved
+        - missing
+        - not_needed
+        - unknown
+    cap:
+      oneOf:
+        - &a3
+          $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    readAt:
+      oneOf:
+        - &a1
+          $ref: ./primitives.yaml#/Instant
+        - type: "null"
+FeeRate:
+  type: object
+  description: A published rate (07 `PublishedRate`).
+  required:
+    - cls
+    - originClass
+    - liquidity
+    - rate
+    - encodedRate
+    - validFrom
+    - validUntil
+  properties:
+    cls:
+      $ref: ./primitives.yaml#/InstrumentClass
+    originClass:
+      description: API, SDK and MCP orders are algo; terminal and tickets are manual (p15 D9).
+      type: string
+      enum:
+        - algo
+        - manual
+    liquidity:
+      type: string
+      enum:
+        - maker
+        - taker
+    rate:
+      description: A fraction of notional, already capped and rounded down.
+      $ref: ./primitives.yaml#/DecStr
+    encodedRate:
+      description: In the venue's unit, as the order carries it.
+      type: string
+    validFrom: *a1
+    validUntil: *a1
+FeeSchedule:
+  type: object
+  description: One venue's fee schedule for the caller.
+  required:
+    - venue
+    - feeKind
+    - unit
+    - step
+    - builderRef
+    - field
+    - rates
+    - approval
+    - classCaps
+    - tier
+    - ruleVersion
+    - validUntil
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    binanceProducts:
+      description: Configuration and billing evidence for each Binance product, when this is a Binance schedule.
+      type: array
+      items:
+        type: object
+        required: [product, prefix, feeKind, billingSettled]
+        properties:
+          product:
+            $ref: ./binance.yaml#/Product
+          prefix:
+            type: [string, "null"]
+          feeKind: { type: string, enum: [rebate, billed, none] }
+          billingSettled: { type: boolean }
+          billedRateBp:
+            type: object
+            required: [maker, taker]
+            properties:
+              maker:
+                $ref: ./primitives.yaml#/DecStr
+              taker:
+                $ref: ./primitives.yaml#/DecStr
+    feeKind: &a2
+      type: string
+    unit: *a2
+    step: *a3
+    builderRef:
+      description: Our builder address, code, tag or prefix as the venue's field takes it; null for 'none'.
+      type:
+        - string
+        - "null"
+    field:
+      description: The field name and shape the direct SDK module writes.
+      type: string
+    rates:
+      type: array
+      items:
+        $ref: ./fees.yaml#/FeeRate
+    approval:
+      oneOf:
+        - $ref: ./fees.yaml#/FeeApproval
+        - type: "null"
+    classCaps:
+      type: object
+      description: The cap per instrument class.
+      additionalProperties: *a3
+    tier:
+      description: 07's effective tier, 'base' when none.
+      type: string
+    ruleVersion: &a4
+      $ref: ./primitives.yaml#/Uuid
+    validUntil:
+      description: The earliest validUntil of the rates; refresh after it.
+      $ref: ./primitives.yaml#/Instant
+FeeQuoteRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - instrumentId
+    - side
+    - orderType
+    - mode
+  properties:
+    instrumentId:
+      $ref: ./venues.yaml#/InstrumentId
+    side:
+      type: string
+      enum:
+        - buy
+        - sell
+    size: *a3
+    notional:
+      description: Exactly one of size and notional.
+      $ref: ./primitives.yaml#/DecStr
+    orderType:
+      type: string
+      enum:
+        - limit
+        - market
+    price:
+      description: For limit orders.
+      $ref: ./primitives.yaml#/DecStr
+    mode:
+      $ref: ./primitives.yaml#/Mode
+    accountId: *a4
+    liquidity:
+      description: "Defaults: market is taker; limit is taker unless postOnly."
+      type: string
+      enum:
+        - maker
+        - taker
+    postOnly:
+      type: boolean
+FeeQuote:
+  type: object
+  description: What an order would cost. Nothing is written.
+  required:
+    - instrumentId
+    - size
+    - price
+    - notional
+    - ourRate
+    - ourFee
+    - venueRate
+    - venueFee
+    - funding
+    - allIn
+    - depthWithinBand
+    - bookAgeMs
+    - validUntil
+  properties:
+    instrumentId:
+      $ref: ./venues.yaml#/InstrumentId
+    size:
+      description: Rounded to the lot.
+      $ref: ./primitives.yaml#/DecStr
+    price:
+      description: Fresh mark or book mid for market orders. For limits, the walked price of the marketable size and the limit for the remainder.
+      $ref: ./primitives.yaml#/DecStr
+    notional: *a3
+    ourRate: *a3
+    ourFee: &a5
+      $ref: ./primitives.yaml#/MoneyJson
+    venueRate:
+      oneOf:
+        - *a3
+        - type: "null"
+    venueFee:
+      oneOf:
+        - *a5
+        - type: "null"
+    funding:
+      oneOf:
+        - type: object
+          required:
+            - rate
+            - intervalHours
+          properties:
+            rate: *a3
+            intervalHours:
+              type: number
+        - type: "null"
+    allIn:
+      type: object
+      required:
+        - price
+        - cost
+      properties:
+        price: *a3
+        cost: *a5
+    depthWithinBand:
+      oneOf:
+        - *a3
+        - type: "null"
+    bookAgeMs:
+      type:
+        - integer
+        - "null"
+    validUntil:
+      description: Five seconds; display only.
+      $ref: ./primitives.yaml#/Instant

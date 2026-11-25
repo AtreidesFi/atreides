@@ -1,0 +1,145 @@
+cards:
+  get:
+    operationId: listResearchCards
+    summary: List currently published research cards.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: lab.research_cards
+    x-refusals: [feature_unavailable]
+    security: []
+    parameters:
+      - name: kind
+        in: query
+        schema: { $ref: ../components/research-cards.yaml#/ResearchCardKind }
+    responses:
+      "200":
+        description: The answer or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      type: array
+                      items: { $ref: ../components/research-cards.yaml#/ResearchCardView }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: []
+card:
+  get:
+    operationId: getResearchCard
+    summary: Read a published card and its strategy specification when available.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: lab.research_cards
+    x-refusals: [feature_unavailable, not_found]
+    security: []
+    parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 80 }
+    responses:
+      "200":
+        description: The answer or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data: { $ref: ../components/research-cards.yaml#/ResearchCardView }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                slug: funding-btc-observation
+                kind: funding_spread
+                title: BTC funding spread
+                summary: Fee-adjusted scans showed a persistent funding difference.
+                author: house
+                label: live_scan
+                metrics:
+                  kind: funding_spread
+                  base: btc
+                  legs:
+                    - { venue: hyperliquid, instrument: "hyperliquid:BTC" }
+                    - { venue: lighter, instrument: "lighter:BTC" }
+                  grossSpread: "0.12"
+                  costRoundTrip: "0.01"
+                  netSpread: "0.11"
+                  holdDays: 7
+                  depthUsd: ["15000", "11000"]
+                  persistedScans: 2017
+                  medianNet30d: null
+                  positiveShare30d: null
+                caveats: []
+                window:
+                  from: "2026-11-01T00:00:00.000Z"
+                  to: "2026-11-08T00:00:00.000Z"
+                venues: [hyperliquid, lighter]
+                validUntil: "2026-11-15T00:00:00.000Z"
+                publishedAt: "2026-11-08T00:01:00.000Z"
+                specAvailable: false
+copy:
+  post:
+    operationId: copyResearchCard
+    summary: Copy a published strategy card into private strategies.
+    tags: [Lab]
+    x-owner: "09"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: lab.research_cards
+    x-refusals: [feature_unavailable, not_found, research_card_no_spec, lab_spec_invalid, idempotency_conflict]
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+      - name: id
+        in: path
+        required: true
+        schema: { $ref: ../components/primitives.yaml#/Uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              name: { type: string, minLength: 1, maxLength: 80, pattern: '^[^\u0000-\u001f]+$' }
+          example: { name: My BTC history study }
+    responses:
+      "200":
+        description: A new strategy and version, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data: { $ref: ../components/lab.yaml#/StrategyCreated }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: research_card_no_spec
+              message: This research card has no strategy specification.
+              retryable: false
+              requestId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80

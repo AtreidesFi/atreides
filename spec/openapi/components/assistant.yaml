@@ -1,0 +1,1146 @@
+# Wire schemas of the assistant routes (10-assistant-bots.md §4.1, §7.2, §8, §10, §12.2, §17.4).
+# Written by ORC-F04 from the owning section; the handlers are 10's.
+AssistantScreenId:
+  type: string
+  enum:
+    - overview
+    - trade
+    - api_bots
+    - compete
+    - vaults
+    - connections
+    - rewards
+    - settings
+    - none
+  description: The screen an ask or a note belongs to.
+AssistantSide:
+  type: string
+  enum:
+    - buy
+    - sell
+AssistantOrderType:
+  type: string
+  enum:
+    - limit
+    - market
+  description: A market order is an IOC bounded by the price band.
+AssistantTimeInForce:
+  type: string
+  enum:
+    - gtc
+    - ioc
+    - fok
+    - post_only
+    - gtd
+  description: "gtd is refused on a ticket: it lives 5 minutes and carries no goodTil."
+ChatTransport:
+  type: string
+  enum:
+    - discord
+    - telegram
+AlertChannel:
+  type: string
+  enum:
+    - discord
+    - telegram
+    - app
+  description: A linked chat, or the notice list of the app.
+AskRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - text
+  properties:
+    text:
+      type: string
+      minLength: 1
+      maxLength: 4000
+      description: The question, 1 to 4,000 characters after trimming.
+    conversationId:
+      $ref: ../components/primitives.yaml#/Uuid
+    subject:
+      type: object
+      additionalProperties: false
+      required:
+        - screen
+      properties:
+        screen:
+          $ref: "#/AssistantScreenId"
+        instrument:
+          oneOf:
+            - type: string
+            - type: "null"
+        venue:
+          oneOf:
+            - type: string
+            - type: "null"
+  description: "An ask. conversationId absent: the server picks or opens one."
+AskEvent:
+  description: One event of the answer stream; each is one JSON object on a `data:` line of the event stream.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - askId
+        - conversationId
+      properties:
+        type:
+          const: start
+        askId:
+          type: string
+        conversationId:
+          type: string
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - delta
+      properties:
+        type:
+          const: text
+        delta:
+          type: string
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - text
+      properties:
+        type:
+          const: replace
+        text:
+          type: string
+      description: A guard retracted what streamed; show this text instead.
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - name
+        - status
+      properties:
+        type:
+          const: tool
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - ok
+            - empty
+            - unavailable
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - ticket
+      properties:
+        type:
+          const: ticket
+        ticket:
+          $ref: "#/TicketView"
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - proposal
+      properties:
+        type:
+          const: alert_proposal
+        proposal:
+          $ref: "#/AlertProposalView"
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - action
+        - count
+      properties:
+        type:
+          const: memory
+        action:
+          type: string
+          enum:
+            - remembered
+            - forgot
+        count:
+          type: integer
+          minimum: 0
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - turnId
+        - feedback
+      properties:
+        type:
+          const: done
+        turnId:
+          type: string
+        feedback:
+          type: boolean
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - code
+        - message
+        - resetAt
+      properties:
+        type:
+          const: error
+        code:
+          type: string
+          enum:
+            - spend_cap_reached
+            - assistant_busy
+            - model_unavailable
+            - feature_unavailable
+            - rate_limited
+            - invalid_request
+            - internal
+        message:
+          type: string
+        resetAt:
+          oneOf:
+            - $ref: ../components/primitives.yaml#/Instant
+            - type: "null"
+FeedbackRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - turnId
+    - up
+  properties:
+    turnId:
+      $ref: ../components/primitives.yaml#/Uuid
+    up:
+      type: boolean
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+LegSizing:
+  description: How a leg is sized.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - sz
+      properties:
+        kind:
+          const: size
+        sz:
+          $ref: ../components/primitives.yaml#/DecStr
+      description: Base units.
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - amount
+      properties:
+        kind:
+          const: notional
+        amount:
+          $ref: ../components/primitives.yaml#/MoneyJson
+      description: In the quote asset.
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - pct
+      properties:
+        kind:
+          const: pct_free_margin
+        pct:
+          $ref: ../components/primitives.yaml#/DecStr
+      description: 0 < pct <= 100, resolved by the server.
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - fraction
+      properties:
+        kind:
+          const: position
+        fraction:
+          $ref: ../components/primitives.yaml#/DecStr
+      description: "Close legs: 0 < fraction <= 1 of the open position."
+LegRequest:
+  description: One leg of a ticket request.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - instrument
+        - side
+        - type
+        - sizing
+        - purpose
+      properties:
+        kind:
+          const: order
+        instrument:
+          type: string
+        venue:
+          $ref: ../components/primitives.yaml#/VenueId
+        side:
+          $ref: "#/AssistantSide"
+        type:
+          $ref: "#/AssistantOrderType"
+        px:
+          $ref: ../components/primitives.yaml#/DecStr
+        tif:
+          $ref: "#/AssistantTimeInForce"
+        sizing:
+          $ref: "#/LegSizing"
+        reduceOnly:
+          type: boolean
+        leverage:
+          type: number
+          exclusiveMinimum: 0
+          description: Checked against the venue cap and the current setting; tickets never change leverage.
+        purpose:
+          type: string
+          enum:
+            - open
+            - add
+            - reduce
+            - close
+            - hedge
+            - stop
+            - take_profit
+            - cancel
+        tp:
+          type: object
+          additionalProperties: false
+          required:
+            - triggerPx
+          properties:
+            triggerPx:
+              $ref: ../components/primitives.yaml#/DecStr
+        sl:
+          type: object
+          additionalProperties: false
+          required:
+            - triggerPx
+          properties:
+            triggerPx:
+              $ref: ../components/primitives.yaml#/DecStr
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - instrument
+        - venue
+        - sizing
+        - purpose
+      properties:
+        kind:
+          const: close
+        instrument:
+          type: string
+        venue:
+          $ref: ../components/primitives.yaml#/VenueId
+        sizing:
+          $ref: "#/LegSizing"
+        purpose:
+          const: close
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - orderId
+        - purpose
+      properties:
+        kind:
+          const: cancel
+        orderId:
+          $ref: ../components/primitives.yaml#/Uuid
+        purpose:
+          const: cancel
+PrepareTicketRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - legs
+  properties:
+    legs:
+      type: array
+      items:
+        $ref: "#/LegRequest"
+      minItems: 1
+      maxItems: 4
+    repeat:
+      type: boolean
+      description: The user asked again in so many words.
+    note:
+      type: string
+      maxLength: 200
+      description: Kept as evidence; not used for the ticket text.
+TicketLegView:
+  type: object
+  additionalProperties: false
+  required:
+    - legNo
+    - venue
+    - mode
+    - keyPlace
+    - cls
+    - account
+    - instrument
+    - side
+    - type
+    - px
+    - sz
+    - notional
+    - reduceOnly
+    - quotedMark
+    - fee
+    - keyExpiresInMs
+    - largeOrder
+    - clientOrderId
+    - status
+    - result
+  properties:
+    legNo:
+      type: integer
+      minimum: 1
+    venue:
+      $ref: ../components/primitives.yaml#/VenueId
+    mode:
+      type: string
+      enum:
+        - gateway
+        - terminal
+    keyPlace:
+      $ref: ../components/primitives.yaml#/KeyPlace
+    cls:
+      $ref: ../components/primitives.yaml#/InstrumentClass
+    account:
+      type: string
+      description: The venue account as the venue shows it, shortened for display.
+    instrument:
+      type: string
+    side:
+      oneOf:
+        - $ref: "#/AssistantSide"
+        - type: "null"
+    type:
+      oneOf:
+        - $ref: "#/AssistantOrderType"
+        - type: "null"
+    px:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/DecStr
+        - type: "null"
+    sz:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/DecStr
+        - type: "null"
+    notional:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/MoneyJson
+        - type: "null"
+    reduceOnly:
+      type: boolean
+    quotedMark:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/DecStr
+        - type: "null"
+    fee:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - venue
+            - ours
+            - ourRateBps
+          properties:
+            venue:
+              $ref: ../components/primitives.yaml#/MoneyJson
+            ours:
+              $ref: ../components/primitives.yaml#/MoneyJson
+            ourRateBps:
+              $ref: ../components/primitives.yaml#/DecStr
+        - type: "null"
+    keyExpiresInMs:
+      oneOf:
+        - type: integer
+          minimum: 0
+          description: Shown when under 7 days.
+        - type: "null"
+    largeOrder:
+      type: boolean
+      description: The Trade screen's large-order warning rule.
+    clientOrderId:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/ClientOrderId
+        - type: "null"
+    status:
+      type: string
+      enum:
+        - waiting
+        - awaiting_device
+        - sent
+        - accepted
+        - filled
+        - partially_filled
+        - refused
+        - unknown
+        - not_run
+    result:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+            - filledSz
+            - avgPx
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            filledSz:
+              oneOf:
+                - $ref: ../components/primitives.yaml#/DecStr
+                - type: "null"
+            avgPx:
+              oneOf:
+                - $ref: ../components/primitives.yaml#/DecStr
+                - type: "null"
+        - type: "null"
+TicketView:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - status
+    - title
+    - lines
+    - legs
+    - createdAt
+    - expiresAt
+    - reviewUrl
+    - realMoney
+    - supersededBy
+  properties:
+    id:
+      $ref: ../components/primitives.yaml#/Uuid
+    status:
+      type: string
+      enum:
+        - open
+        - claimed
+        - done
+        - failed
+        - expired
+        - cancelled
+    title:
+      type: string
+      description: Built by the server from checked parameters.
+    lines:
+      type: array
+      items:
+        type: string
+      description: One per leg plus the fee line.
+    legs:
+      type: array
+      items:
+        $ref: "#/TicketLegView"
+    createdAt:
+      $ref: ../components/primitives.yaml#/Instant
+    expiresAt:
+      $ref: ../components/primitives.yaml#/Instant
+    reviewUrl:
+      type: string
+      description: The app link; bots and MCP show it as "Review in app".
+    realMoney:
+      type: boolean
+    supersededBy:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/Uuid
+        - type: "null"
+DeviceSignRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - legNo
+    - venue
+    - keyPlace
+    - intent
+    - checkToken
+  properties:
+    legNo:
+      type: integer
+      minimum: 1
+    venue:
+      $ref: ../components/primitives.yaml#/VenueId
+    keyPlace:
+      type: string
+      enum:
+        - browser
+        - wallet
+    intent:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          enum:
+            - order
+            - cancel
+      additionalProperties: true
+      description: The OrderIntent or CancelIntent of the gateway contract (05) that the device signs.
+    checkToken:
+      type: string
+      description: The gateway's pre-sign check answer for this intent.
+ConfirmResult:
+  description: What a confirm did. `device` asks the browser or wallet to sign; `requote` carries the replacement ticket.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - ticket
+      properties:
+        kind:
+          const: ran
+        ticket:
+          $ref: "#/TicketView"
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - ticket
+        - signRequests
+      properties:
+        kind:
+          const: device
+        ticket:
+          $ref: "#/TicketView"
+        signRequests:
+          type: array
+          items:
+            $ref: "#/DeviceSignRequest"
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - ticket
+      properties:
+        kind:
+          const: already
+        ticket:
+          $ref: "#/TicketView"
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - ticket
+        - replacement
+      properties:
+        kind:
+          const: requote
+        ticket:
+          $ref: "#/TicketView"
+        replacement:
+          $ref: "#/TicketView"
+DeviceLegResult:
+  type: object
+  additionalProperties: false
+  required:
+    - ticket
+    - next
+  properties:
+    ticket:
+      $ref: "#/TicketView"
+    next:
+      oneOf:
+        - $ref: "#/DeviceSignRequest"
+        - type: "null"
+NoteView:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - type
+    - screen
+    - anchor
+    - text
+    - action
+    - dismissible
+  properties:
+    id:
+      $ref: ../components/primitives.yaml#/Uuid
+    type:
+      type: string
+      enum:
+        - key_expiring
+        - fee_approval_missing
+        - order_unknown
+        - funding_spread
+    screen:
+      $ref: "#/AssistantScreenId"
+    anchor:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - id
+      properties:
+        kind:
+          type: string
+          enum:
+            - connection
+            - order
+            - position
+            - venue_row
+        id:
+          type: string
+    text:
+      type: string
+      description: One line, numbers included.
+    action:
+      type: object
+      additionalProperties: false
+      required:
+        - label
+        - kind
+        - href
+      properties:
+        label:
+          type: string
+        kind:
+          type: string
+          enum:
+            - link
+            - ticket
+        href:
+          type: string
+    dismissible:
+      const: true
+NoticeView:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - kind
+    - venue
+    - title
+    - body
+    - action
+    - status
+    - raisedAt
+    - resolvedAt
+  properties:
+    id:
+      type: string
+    kind:
+      type: string
+      enum:
+        - key_expiring
+        - key_expired
+        - order_unknown
+        - venue_outage
+        - fee_approval_missing
+        - key_check_failed
+        - key_displaced
+        - key_leak_suspected
+        - secret_in_chat
+        - alert_fired
+    venue:
+      oneOf:
+        - type: string
+        - type: "null"
+    title:
+      type: string
+    body:
+      type: string
+    action:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - label
+            - href
+          properties:
+            label:
+              type: string
+            href:
+              type: string
+        - type: "null"
+    status:
+      type: string
+      enum:
+        - open
+        - resolved
+        - acknowledged
+    raisedAt:
+      $ref: ../components/primitives.yaml#/Instant
+    resolvedAt:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/Instant
+        - type: "null"
+MemoryFact:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - text
+    - source
+    - createdAt
+  properties:
+    id:
+      $ref: ../components/primitives.yaml#/Uuid
+    text:
+      type: string
+      minLength: 1
+      maxLength: 280
+    source:
+      type: string
+      enum:
+        - user
+        - conversation
+    createdAt:
+      $ref: ../components/primitives.yaml#/Instant
+MemoryTextRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - text
+  properties:
+    text:
+      type: string
+      minLength: 1
+      maxLength: 280
+AlertParams:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - trigger
+      properties:
+        trigger:
+          const: order_filled
+        venues:
+          type: array
+          items:
+            $ref: ../components/primitives.yaml#/VenueId
+        minNotional:
+          $ref: ../components/primitives.yaml#/MoneyJson
+        partial:
+          type: boolean
+    - type: object
+      additionalProperties: false
+      required:
+        - trigger
+        - states
+      properties:
+        trigger:
+          const: order_final
+        venues:
+          type: array
+          items:
+            $ref: ../components/primitives.yaml#/VenueId
+        states:
+          type: array
+          items:
+            type: string
+            enum:
+              - cancelled
+              - rejected
+          minItems: 1
+    - type: object
+      additionalProperties: false
+      required:
+        - trigger
+        - instrument
+      properties:
+        trigger:
+          const: price_level
+        instrument:
+          type: string
+        above:
+          $ref: ../components/primitives.yaml#/DecStr
+        below:
+          $ref: ../components/primitives.yaml#/DecStr
+      description: At least one of above, below.
+    - type: object
+      additionalProperties: false
+      required:
+        - trigger
+        - instrument
+      properties:
+        trigger:
+          const: funding_threshold
+        instrument:
+          type: string
+        aprAbove:
+          $ref: ../components/primitives.yaml#/DecStr
+        aprBelow:
+          $ref: ../components/primitives.yaml#/DecStr
+      description: At least one of aprAbove, aprBelow.
+    - type: object
+      additionalProperties: false
+      required:
+        - trigger
+        - withinPct
+      properties:
+        trigger:
+          const: liq_distance
+        venue:
+          $ref: ../components/primitives.yaml#/VenueId
+        instrument:
+          type: string
+        withinPct:
+          $ref: ../components/primitives.yaml#/DecStr
+      description: 0 < withinPct <= 50.
+AlertRuleView:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - status
+    - params
+    - channels
+    - label
+    - text
+    - cooldownS
+    - mutedUntil
+    - lastFiredAt
+    - available
+    - createdAt
+  properties:
+    id:
+      $ref: ../components/primitives.yaml#/Uuid
+    status:
+      type: string
+      enum:
+        - proposed
+        - active
+        - muted
+        - deleted
+    params:
+      $ref: "#/AlertParams"
+    channels:
+      type: array
+      items:
+        $ref: "#/AlertChannel"
+    label:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - untrusted
+          properties:
+            untrusted:
+              type: string
+        - type: "null"
+    text:
+      type: string
+      description: Built by the server from params, never from the label.
+    cooldownS:
+      type: integer
+      minimum: 0
+      maximum: 604800
+    mutedUntil:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/Instant
+        - type: "null"
+    lastFiredAt:
+      oneOf:
+        - $ref: ../components/primitives.yaml#/Instant
+        - type: "null"
+    available:
+      type: boolean
+      description: False when the trigger has no producer yet.
+    createdAt:
+      $ref: ../components/primitives.yaml#/Instant
+AlertProposalView:
+  type: object
+  additionalProperties: false
+  required:
+    - ruleId
+    - text
+    - turnOnUrl
+  properties:
+    ruleId:
+      $ref: ../components/primitives.yaml#/Uuid
+    text:
+      type: string
+    turnOnUrl:
+      type: string
+CreateAlertRuleRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - params
+  properties:
+    params:
+      $ref: "#/AlertParams"
+    channels:
+      type: array
+      items:
+        $ref: "#/AlertChannel"
+      description: "Default: every active chat link and the app. A chat that is not linked is chat_not_linked."
+    label:
+      type: string
+      maxLength: 60
+    cooldownS:
+      type: integer
+      minimum: 0
+      maximum: 604800
+UpdateAlertRuleRequest:
+  type: object
+  additionalProperties: false
+  required: []
+  properties:
+    status:
+      type: string
+      enum:
+        - muted
+        - active
+        - deleted
+    muteHours:
+      type: integer
+      minimum: 1
+      maximum: 168
+    params:
+      $ref: "#/AlertParams"
+    channels:
+      type: array
+      items:
+        $ref: "#/AlertChannel"
+    cooldownS:
+      type: integer
+      minimum: 0
+      maximum: 604800
+ChatLinkView:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - transport
+    - username
+    - dmBlocked
+    - hideAmounts
+    - quietFrom
+    - quietTo
+    - timezone
+    - hourlyCap
+    - linkedAt
+  properties:
+    id:
+      $ref: ../components/primitives.yaml#/Uuid
+    transport:
+      $ref: "#/ChatTransport"
+    username:
+      oneOf:
+        - type: string
+        - type: "null"
+    dmBlocked:
+      type: boolean
+    hideAmounts:
+      type: boolean
+    quietFrom:
+      oneOf:
+        - type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        - type: "null"
+    quietTo:
+      oneOf:
+        - type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        - type: "null"
+    timezone:
+      type: string
+      minLength: 1
+      maxLength: 64
+    hourlyCap:
+      type: integer
+      minimum: 1
+      maximum: 60
+      description: "Alert messages per hour. money-ok: a count, not money."
+    linkedAt:
+      $ref: ../components/primitives.yaml#/Instant
+UpdateChatLinkRequest:
+  type: object
+  additionalProperties: false
+  required: []
+  properties:
+    hideAmounts:
+      type: boolean
+    quietFrom:
+      oneOf:
+        - type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        - type: "null"
+    quietTo:
+      oneOf:
+        - type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        - type: "null"
+    timezone:
+      type: string
+      minLength: 1
+      maxLength: 64
+    hourlyCap:
+      type: integer
+      minimum: 1
+      maximum: 60
+      description: "Alert messages per hour. money-ok: a count, not money."
+ChatLinkCodeRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - transport
+  properties:
+    transport:
+      $ref: "#/ChatTransport"
+ChatLinkCode:
+  type: object
+  additionalProperties: false
+  required:
+    - code
+    - expiresAt
+    - deepLink
+  properties:
+    code:
+      type: string
+    expiresAt:
+      $ref: ../components/primitives.yaml#/Instant
+    deepLink:
+      oneOf:
+        - type: string
+        - type: "null"
+ClaimChatLinkRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - code
+    - transport
+    - externalUserId
+    - externalChatId
+  properties:
+    code:
+      type: string
+      minLength: 1
+      maxLength: 64
+    transport:
+      $ref: "#/ChatTransport"
+    externalUserId:
+      type: string
+      pattern: ^[0-9]{1,24}$
+    externalChatId:
+      type: string
+      maxLength: 64
+    username:
+      type: string
+      maxLength: 64

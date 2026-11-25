@@ -1,0 +1,166 @@
+# Claims (03 §7.6; shapes 07 §7.1). Sources only: no handlers.
+claims:
+  get:
+    operationId: listClaims
+    summary: List claims, newest first.
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - cursor_invalid
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of claims.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/rewards.yaml#/Claim
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d13
+                  status: queued
+                  amount:
+                    amount: "12.5"
+                    asset: usdc
+                  destination: "0x00000000000000000000000000000000000000aa"
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  txHash: null
+                  payoutStatus: null
+              nextCursor: null
+  post:
+    operationId: createClaim
+    summary: Claim everything that is claimable.
+    description: "One button: the destination is the payout wallet stored on the claim. Session only, never an API key."
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - feature_unavailable
+      - idempotency_conflict
+      - claims_halted
+      - claim_below_minimum
+      - nothing_claimable
+      - payout_wallet_missing
+      - payout_wallet_cooling_off
+    x-flag: claims.enabled
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/rewards.yaml#/CreateClaimRequest
+          example: {}
+    responses:
+      "200":
+        description: The claim, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/rewards.yaml#/Claim
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d13
+                status: queued
+                amount:
+                  amount: "12.5"
+                  asset: usdc
+                destination: "0x00000000000000000000000000000000000000aa"
+                createdAt: 2026-11-07T09:30:00.000Z
+                txHash: null
+                payoutStatus: null
+claim:
+  get:
+    operationId: getClaim
+    summary: Read one claim.
+    tags:
+      - Rewards
+    x-owner: "07"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: claimId
+        in: path
+        required: true
+        description: The claim.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The claim, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/rewards.yaml#/Claim
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d13
+                status: queued
+                amount:
+                  amount: "12.5"
+                  asset: usdc
+                destination: "0x00000000000000000000000000000000000000aa"
+                createdAt: 2026-11-07T09:30:00.000Z
+                txHash: null
+                payoutStatus: null

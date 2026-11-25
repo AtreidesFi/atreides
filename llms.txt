@@ -1,0 +1,26 @@
+# Atreides
+
+> Atreides is an invite-only execution platform for systematic traders, with an order router, TypeScript and Python SDKs, MCP trade tools and hosted bots.
+
+The app is at https://app.atreides.finance/ and the production API is at https://api.atreides.finance/. Hyperliquid, Aster and Lighter trade real money through one API from servers in AWS Tokyo, next to the venues. Public market data and router previews for BTC and ETH perpetuals from 1,000 to 20,000,000 USD need no account.
+
+AI agents trade through MCP with a trade-scoped token on the user's connected accounts, inside the user's limits. Hosted bots run on Atreides servers under their own scoped key. Funds stay at the venues; keys can never withdraw.
+
+## Start here
+
+- [What Atreides gives you and the public endpoints](AGENTS.md)
+- [Invite-only app](https://app.atreides.finance/)
+- [Live venue catalogue](https://api.atreides.finance/v1/venues)
+- [Router preview API](docs/api/guides/router-on-your-size.md)
+- [Recheck the public numbers](README.md#recheck-the-public-numbers)
+
+## Contract and clients
+
+- [OpenAPI bundle](spec/openapi.yaml)
+- [Generated API reference](docs/api/reference.html)
+- [Router model](docs/ROUTER-MODEL.md)
+- [REST quick-start](docs/api/guides/quickstart.md)
+- [SDK quick-start](docs/api/guides/sdk.md)
+- [MCP setup](docs/api/guides/mcp.md)
+
+Keep the response timestamp, filters, units and sample count with a number. Preserve nulls. A preview is indicative, a benchmark is a replay and a fill is execution evidence. Use only anonymous reads for public verification.

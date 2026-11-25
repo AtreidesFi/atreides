@@ -1,0 +1,693 @@
+# Orders and execution: the wire schemas of 03 §8 (Orders). Requests are closed (01 §5.12 rule 1); responses may gain fields.
+TriggerJson:
+  type: object
+  description: A take-profit or stop-loss trigger attached to an order. A null `limitPrice` is a market trigger.
+  additionalProperties: false
+  required:
+    - kind
+    - triggerPrice
+    - limitPrice
+  properties:
+    kind:
+      type: string
+      enum:
+        - tp
+        - sl
+    triggerPrice:
+      $ref: ./primitives.yaml#/DecStr
+    limitPrice:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+RelaySigned:
+  type: object
+  description: "Bytes the user's own key signed, forwarded unchanged. Discriminated by `venue`: each venue file adds its
+    member schema (relay-<venue>.yaml) and the bundle joins them into a `oneOf`. Until a venue file lands, `signed` is
+    open."
+  additionalProperties: false
+  required:
+    - venue
+    - signed
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    signed:
+      type: object
+      additionalProperties: {}
+PlaceOrderIntent:
+  type: object
+  description: An order the gateway signs for the caller.
+  additionalProperties: false
+  required:
+    - accountId
+    - clientOrderId
+    - instrumentId
+    - side
+    - type
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    clientOrderId:
+      $ref: ./primitives.yaml#/ClientOrderId
+    instrumentId:
+      type: string
+      description: '"<venue>:<venueSymbol>".'
+    side:
+      type: string
+      enum:
+        - buy
+        - sell
+    type:
+      description: >-
+        A market order is an IOC bounded by the price band. The four trigger types (`stop_market`, `stop_limit`, `take_market`,
+        `take_limit`) carry `triggerPx`; a venue that does not hold them itself refuses them `order_type_unsupported`, and we
+        never hold a trigger for you (05 §10b.1). No venue lists them yet.
+      type: string
+      enum:
+        - limit
+        - market
+        - stop_market
+        - stop_limit
+        - take_market
+        - take_limit
+    triggerPx:
+      description: Required for a trigger type, and only for it. A `_limit` type also carries `price`.
+      $ref: ./primitives.yaml#/DecStr
+    dryRun:
+      description: >-
+        Run the checks of 05 §3.3 steps 1 to 4 (state, fee, band, quantization, limits, frozen mode) and answer `DryRunResult`: nothing is
+        stored, signed or sent, and no budget is taken. A plain intent only (no `routeId`, no `strategyRunId`).
+      type: boolean
+    tif:
+      description: "Default: gtc for a limit order, ioc for a market order."
+      type: string
+      enum:
+        - gtc
+        - ioc
+        - fok
+        - post_only
+        - gtd
+    price:
+      description: Required for a limit order.
+      $ref: ./primitives.yaml#/DecStr
+    size:
+      $ref: ./primitives.yaml#/DecStr
+    notional:
+      description: Market buys only, where the venue sizes in quote. Exactly one of `size` and `notional`.
+      $ref: ./primitives.yaml#/DecStr
+    reduceOnly:
+      type: boolean
+    goodTil:
+      description: Required when `tif` is gtd.
+      $ref: ./primitives.yaml#/Instant
+    tp:
+      $ref: "#/TriggerJson"
+    sl:
+      $ref: "#/TriggerJson"
+    slippageBps:
+      description: "Swap venues: the floor below the quote the user accepts, bounded by the price band."
+      type: integer
+      minimum: 0
+    routeId:
+      $ref: ./primitives.yaml#/Uuid
+    strategyRunId:
+      description: A gateway-mode strategy run's order.
+      $ref: ./primitives.yaml#/Uuid
+PlaceOrderRelay:
+  type: object
+  description: An order the user's own key already signed.
+  additionalProperties: false
+  required:
+    - accountId
+    - clientOrderId
+    - relay
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    clientOrderId:
+      $ref: ./primitives.yaml#/ClientOrderId
+    routeId:
+      $ref: ./primitives.yaml#/Uuid
+    strategyRunId:
+      $ref: ./primitives.yaml#/Uuid
+    relay:
+      $ref: "#/RelaySigned"
+DryRunResult:
+  type: object
+  description: >-
+    What a real order would meet (03 API-060, 05 §10b). `refusal` is the refusal it would get; `wouldPlace` is false then. A figure the
+    check cannot give is null, never zero: the venue's own fee is not known to the check, so `venueUsd` is null.
+  additionalProperties: false
+  required: [wouldPlace, price, size, capPrice, fee, refusal]
+  properties:
+    wouldPlace:
+      type: boolean
+    price:
+      description: "The quantized limit price; null for a market order and for a refusal."
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    size:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    capPrice:
+      description: "The price the order is bound to: the limit price, or for a market order the band-bounded price."
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    fee:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [venueUsd, atreidesUsd, rate]
+          properties:
+            venueUsd:
+              oneOf:
+                - $ref: ./primitives.yaml#/DecStr
+                - type: "null"
+            atreidesUsd:
+              $ref: ./primitives.yaml#/DecStr
+            rate:
+              $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    refusal:
+      oneOf:
+        - $ref: ./batch.yaml#/ItemRefusal
+        - type: "null"
+PlaceOrder:
+  description: An intent, a relay payload, or a routed order.
+  oneOf:
+    - $ref: "#/PlaceOrderIntent"
+    - $ref: "#/PlaceOrderRelay"
+    - $ref: ./route.yaml#/RoutedOrder
+CancelOrderRequest:
+  type: object
+  description: "`signed` on relay connections."
+  additionalProperties: false
+  required:
+    - accountId
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    signed:
+      $ref: "#/RelaySigned"
+ModifyOrderRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - accountId
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    price:
+      $ref: ./primitives.yaml#/DecStr
+    size:
+      $ref: ./primitives.yaml#/DecStr
+    newClientOrderId:
+      $ref: ./primitives.yaml#/ClientOrderId
+    signed:
+      $ref: "#/RelaySigned"
+OrderSignatureRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - accountId
+    - signature
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    signature:
+      type: string
+      minLength: 1
+      description: The user's signature over `userAction.request`.
+UserSignedPayload:
+  description: A raw transaction, a hash of one the bot sent, or a call bundle.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - rawTx
+      properties:
+        kind:
+          const: raw_tx
+        rawTx:
+          $ref: ./primitives.yaml#/Hex
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - txHash
+      properties:
+        kind:
+          const: tx_hash
+        txHash:
+          $ref: ./primitives.yaml#/Hex
+    - type: object
+      additionalProperties: false
+      required:
+        - kind
+        - bundle
+      properties:
+        kind:
+          const: calls_bundle
+        bundle:
+          type: object
+          additionalProperties: {}
+  discriminator:
+    propertyName: kind
+OrderTxRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - accountId
+    - payload
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    payload:
+      $ref: "#/UserSignedPayload"
+CancelAllRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - accountId
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    instrumentId:
+      type: string
+DeadManRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - accountId
+    - timeoutMs
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    timeoutMs:
+      description: 0 clears; otherwise 5000 to 600000.
+      type: integer
+      minimum: 0
+      maximum: 600000
+UserAction:
+  type: object
+  required:
+    - kind
+    - request
+    - expiresAt
+  properties:
+    kind:
+      type: string
+      enum:
+        - sign_typed_data
+        - sign_transaction
+    request:
+      description: EIP-712 typed data or an unsigned transaction request, as the venue file defines.
+      type: object
+      additionalProperties: true
+    expiresAt:
+      $ref: ./primitives.yaml#/Instant
+FinalReason:
+  type: string
+  enum:
+    - filled
+    - venue_rejected
+    - refused
+    - not_placed
+    - cancelled_by_user
+    - cancelled_by_deadman
+    - cancelled_by_venue
+    - cancelled_paused
+    - expired
+    - ioc_remainder
+Order:
+  type: object
+  description: An order as the API shows it.
+  required:
+    - orderId
+    - routeId
+    - clientOrderId
+    - accountId
+    - venue
+    - instrumentId
+    - cls
+    - mode
+    - keyPlace
+    - origin
+    - side
+    - type
+    - tif
+    - price
+    - size
+    - reduceOnly
+    - state
+    - filledSize
+    - avgPrice
+    - venueOrderId
+    - fee
+    - reject
+    - finalReason
+    - unfilledByBand
+    - unknown
+    - userAction
+    - attached
+    - executionReport
+    - createdAt
+    - updatedAt
+  properties:
+    routeId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    orderId:
+      $ref: ./primitives.yaml#/Uuid
+    clientOrderId:
+      $ref: ./primitives.yaml#/ClientOrderId
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instrumentId:
+      type: string
+    cls:
+      $ref: ./primitives.yaml#/InstrumentClass
+    mode:
+      $ref: ./primitives.yaml#/Mode
+    keyPlace:
+      $ref: ./primitives.yaml#/KeyPlace
+    origin:
+      type: string
+      enum:
+        - api
+        - sdk
+        - terminal
+        - mcp
+        - ticket
+        - route
+        - guardian
+    side:
+      type: string
+      enum:
+        - buy
+        - sell
+    type:
+      description: >-
+        The order as placed. A trigger type (`stop_market`, `stop_limit`, `take_market`, `take_limit`) rests at a venue that holds it.
+      type: string
+      enum:
+        - limit
+        - market
+        - stop_market
+        - stop_limit
+        - take_market
+        - take_limit
+    tif:
+      type: string
+      enum:
+        - gtc
+        - ioc
+        - fok
+        - post_only
+        - gtd
+    price:
+      description: The limit, or the band bound of a market order.
+      $ref: ./primitives.yaml#/DecStr
+    size:
+      $ref: ./primitives.yaml#/DecStr
+    reduceOnly:
+      type: boolean
+    state:
+      $ref: ./primitives.yaml#/OrderState
+    filledSize:
+      $ref: ./primitives.yaml#/DecStr
+    avgPrice:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    venueOrderId:
+      type:
+        - string
+        - "null"
+    fee:
+      type: object
+      required:
+        - rate
+        - field
+        - asked
+      properties:
+        rate:
+          $ref: ./primitives.yaml#/DecStr
+        field:
+          type: string
+        asked:
+          oneOf:
+            - $ref: ./primitives.yaml#/MoneyJson
+            - type: "null"
+    reject:
+      oneOf:
+        - type: object
+          required:
+            - code
+            - venueText
+          properties:
+            code:
+              type: string
+            venueText:
+              type:
+                - string
+                - "null"
+        - type: "null"
+    finalReason:
+      description: Null while the order is not final.
+      oneOf:
+        - $ref: "#/FinalReason"
+        - type: "null"
+    unfilledByBand:
+      description: The size the band left unfilled on a close, to resend.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    unknown:
+      description: "Set while `state` is unknown: the order may have reached the venue; do not resend."
+      oneOf:
+        - type: object
+          required:
+            - since
+            - lastLookupAt
+            - finalAfter
+          properties:
+            since:
+              $ref: ./primitives.yaml#/Instant
+            lastLookupAt:
+              oneOf:
+                - $ref: ./primitives.yaml#/Instant
+                - type: "null"
+            finalAfter:
+              $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    userAction:
+      oneOf:
+        - $ref: "#/UserAction"
+        - type: "null"
+    attached:
+      type: object
+      required:
+        - tp
+        - sl
+      properties:
+        tp:
+          type:
+            - string
+            - "null"
+        sl:
+          type:
+            - string
+            - "null"
+    executionReport:
+      description:
+        The execution report of 05 section 10b.5, computed on read from the order's own record. Null until the
+        order has a fill or is final.
+      oneOf:
+        - $ref: "#/ExecutionReport"
+        - type: "null"
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    updatedAt:
+      $ref: ./primitives.yaml#/Instant
+ExecutionReport:
+  type: object
+  description:
+    "What an order cost and how fast it went, every figure from the record. A figure the record cannot give is
+    null, never zero. Slippage is positive when it is worse for the trader (signed against the side). The arrival
+    is the book at the moment the request reached the API (`arrivalSource` book or cache) or, when no book was held, the
+    mark at that moment (`arrivalSource` mark, no `arrivalMid`)."
+  additionalProperties: false
+  required:
+    - arrivalMid
+    - arrivalMark
+    - arrivalSource
+    - vwap
+    - slippageVsArrivalBps
+    - slippageVsMidBps
+    - filledSize
+    - fills
+    - venueFeeUsd
+    - ourFeeUsd
+    - decisionMs
+    - msToAck
+    - msToFirstFill
+    - provisional
+  properties:
+    arrivalMid:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    arrivalMark:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    arrivalSource:
+      description: Where the arrival price came from. Null when the order has no arrival record at all.
+      oneOf:
+        - type: string
+          enum:
+            - book
+            - cache
+            - mark
+        - type: "null"
+    vwap:
+      description: Volume-weighted average fill price over the order's fills.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    slippageVsArrivalBps:
+      description: Basis points of VWAP against the arrival price (the arrival mid, else the arrival mark).
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    slippageVsMidBps:
+      description: Basis points of VWAP against the arrival mid. Null when no mid was held at arrival.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    filledSize:
+      $ref: ./primitives.yaml#/DecStr
+    fills:
+      type: integer
+      minimum: 0
+    venueFeeUsd:
+      description: The venue's own fee in USD at each fill's time. Null when any fill lacks a fee or a USD rate.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    ourFeeUsd:
+      description: Our whole fee in USD, one figure. Null when any fill lacks it.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    decisionMs:
+      description: Milliseconds from the API accepting the request to the order being signed for sending.
+      oneOf:
+        - type: integer
+          minimum: 0
+        - type: "null"
+    msToAck:
+      description: Milliseconds from the API accepting the request to the venue's answer.
+      oneOf:
+        - type: integer
+          minimum: 0
+        - type: "null"
+    msToFirstFill:
+      description: Milliseconds from the API accepting the request to the first fill's venue time. Null with no fill.
+      oneOf:
+        - type: integer
+          minimum: 0
+        - type: "null"
+    provisional:
+      description: True while the order is not final or any fill is not yet confirmed.
+      type: boolean
+DeadMan:
+  type: object
+  required:
+    - accountId
+    - armed
+    - timeoutMs
+    - firesAt
+    - venueBackstop
+  properties:
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    armed:
+      type: boolean
+    timeoutMs:
+      type:
+        - integer
+        - "null"
+    firesAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    venueBackstop:
+      type: string
+      enum:
+        - armed
+        - not_available
+        - failed
+CancelAllResult:
+  type: object
+  required:
+    - requested
+    - orders
+  properties:
+    requested:
+      type: integer
+      minimum: 0
+    orders:
+      type: array
+      items:
+        $ref: "#/Order"
+PreSignCheck:
+  description: The gateway's pre-sign answer a device-signed page asks for.
+  oneOf:
+    - type: object
+      required:
+        - allow
+        - orderId
+        - clientOrderId
+        - bandPrice
+        - fee
+        - validUntil
+      properties:
+        allow:
+          const: true
+        orderId:
+          $ref: ./primitives.yaml#/Uuid
+        clientOrderId:
+          $ref: ./primitives.yaml#/ClientOrderId
+        bandPrice:
+          $ref: ./primitives.yaml#/DecStr
+        fee:
+          type: object
+          required:
+            - rate
+            - encodedRate
+          properties:
+            rate:
+              $ref: ./primitives.yaml#/DecStr
+            encodedRate:
+              type: string
+        validUntil:
+          $ref: ./primitives.yaml#/Instant
+    - type: object
+      required:
+        - allow
+        - code
+      properties:
+        allow:
+          const: false
+        code:
+          description: A gateway refusal code.
+          type: string

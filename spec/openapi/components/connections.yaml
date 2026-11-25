@@ -1,0 +1,484 @@
+# Connections and the connect lifecycle (03 §8, §9).
+ConnectionState:
+  type: string
+  enum:
+    - pending
+    - active
+    - expiring
+    - expired
+    - refused
+    - suspended
+    - needs_reconnect
+    - revoked
+ConnectionKey:
+  type: object
+  required:
+    - credentialId
+    - kind
+    - custody
+    - holder
+    - publicRef
+    - can
+    - cannot
+    - ipBinding
+    - expiresAt
+    - renewFrom
+    - checkedAt
+    - sealedTo
+  properties:
+    credentialId: &a3
+      $ref: ./primitives.yaml#/Uuid
+    kind:
+      $ref: ./primitives.yaml#/CredentialKind
+    custody:
+      $ref: ./primitives.yaml#/CustodyClass
+    holder:
+      $ref: ./primitives.yaml#/CredentialHolder
+    publicRef: &a1
+      type: string
+    can:
+      description: Plain lines from the venue's read-back.
+      type: array
+      items: *a1
+    cannot:
+      type: array
+      items: *a1
+    ipBinding:
+      oneOf:
+        - type: object
+          required:
+            - bound
+            - ips
+          properties:
+            bound: &a11
+              type: boolean
+            ips:
+              type: array
+              items: *a1
+        - const: not_readable
+    expiresAt:
+      oneOf:
+        - &a2
+          $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    renewFrom:
+      description: '"Renew" shows from here.'
+      oneOf:
+        - *a2
+        - type: "null"
+    checkedAt:
+      oneOf:
+        - *a2
+        - type: "null"
+    sealedTo:
+      oneOf:
+        - oneOf:
+            - type: object
+              required:
+                - kind
+                - imageSha384
+              properties:
+                kind:
+                  const: enclave
+                imageSha384: *a1
+            - type: object
+              required:
+                - kind
+              properties:
+                kind:
+                  const: process_signer
+        - type: "null"
+Connection:
+  type: object
+  description: One venue account, one mode, one key place.
+  required:
+    - connectionId
+    - accountId
+    - venue
+    - mode
+    - keyPlace
+    - state
+    - stateReason
+    - key
+    - approval
+    - custodyNote
+    - venueExtra
+    - createdAt
+    - updatedAt
+  properties:
+    connectionId: *a3
+    accountId: *a3
+    venue: &a8
+      $ref: ./primitives.yaml#/VenueId
+    mode: &a4
+      $ref: ./primitives.yaml#/Mode
+    keyPlace: &a5
+      $ref: ./primitives.yaml#/KeyPlace
+    state:
+      $ref: ./connections.yaml#/ConnectionState
+    stateReason:
+      description: An ErrorCode or a venue file's reason slug.
+      type: &a9
+        - string
+        - "null"
+    key:
+      oneOf:
+        - $ref: ./connections.yaml#/ConnectionKey
+        - type: "null"
+    approval:
+      oneOf:
+        - $ref: ./fees.yaml#/FeeApproval
+        - type: "null"
+    custodyNote:
+      description: Who can move funds and where to, per the venue's non-custodial statement.
+      type: string
+    venueExtra: &a10
+      type: object
+      additionalProperties:
+        type:
+          - string
+          - number
+          - boolean
+          - "null"
+    createdAt: *a2
+    updatedAt: *a2
+ConnectKind:
+  type: string
+  enum:
+    - approve_fee
+    - approve_key
+    - renew_key
+    - revoke_key
+    - register_key
+    - bind_referral
+    - link_account
+ConnectOfferRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - accountRef
+    - mode
+    - keyPlace
+    - kind
+  properties:
+    accountRef:
+      description: Address, sub-account or UID as the venue spells it.
+      type: string
+    accountId:
+      description: When the account is already linked.
+      $ref: ./primitives.yaml#/Uuid
+    mode: *a4
+    keyPlace: *a5
+    kind:
+      type: string
+      enum:
+        - approve_fee
+        - approve_key
+        - register_key
+        - bind_referral
+        - link_account
+    options:
+      description: The venue file's options. Each venue file writes the schema of its own options.
+      type: object
+      additionalProperties:
+        oneOf:
+          - type: string
+          - type: number
+          - type: boolean
+          - type: "null"
+          - type: array
+            items: *a1
+    keyPublicRef:
+      description: A browser-made key's public part.
+      type: string
+ConnectStep:
+  type: object
+  required:
+    - id
+    - signer
+    - scheme
+    - chainId
+    - payload
+    - summary
+  properties:
+    id: *a1
+    signer:
+      type: string
+      enum:
+        - main_wallet
+        - browser_key
+        - user_paste
+        - oauth
+    scheme:
+      type: string
+      enum:
+        - eip712
+        - eip191
+        - solana_ed25519
+        - cosmos_adr36
+        - stark
+        - ed25519_raw
+        - onchain_tx
+        - api_key_paste
+        - oauth_redirect
+    chainId: &a7
+      type:
+        - integer
+        - "null"
+    payload:
+      description: Canonical JSON of exactly what is signed or pasted.
+      type: string
+    summary:
+      type: object
+      required:
+        - feeCap
+        - ourRates
+        - keyCan
+        - keyCannot
+        - expiresAt
+        - slotsUsed
+        - slotsMax
+      properties:
+        feeCap:
+          oneOf:
+            - &a6
+              $ref: ./primitives.yaml#/DecStr
+            - type: "null"
+        ourRates:
+          type: object
+          additionalProperties: *a6
+        keyCan:
+          type: array
+          items: *a1
+        keyCannot:
+          type: array
+          items: *a1
+        expiresAt:
+          oneOf:
+            - *a2
+            - type: "null"
+        slotsUsed: *a7
+        slotsMax: *a7
+ConnectOffer:
+  type: object
+  description: What the user signs to connect, renew or revoke a key.
+  required:
+    - offerId
+    - venue
+    - kind
+    - mode
+    - keyPlace
+    - accountRef
+    - status
+    - steps
+    - key
+    - sealTo
+    - validUntil
+    - venueExtra
+  properties:
+    offerId: *a3
+    venue: *a8
+    kind:
+      $ref: ./connections.yaml#/ConnectKind
+    mode: *a4
+    keyPlace: *a5
+    accountRef: *a1
+    status:
+      type: string
+      enum:
+        - open
+        - completing
+        - completed
+        - refused
+        - expired
+        - cancelled
+    steps:
+      type: array
+      items:
+        $ref: ./connections.yaml#/ConnectStep
+    key:
+      description: "For keys made in our signer or enclave: the public reference and, for the enclave, the attestation
+        document to check first."
+      oneOf:
+        - type: object
+          required:
+            - publicRef
+            - attestation
+          properties:
+            publicRef: *a1
+            attestation:
+              type: *a9
+        - type: "null"
+    sealTo:
+      description: "For browser-made gateway keys: whom to seal to (01 §5.11)."
+      oneOf:
+        - oneOf:
+            - type: object
+              required:
+                - kind
+                - expectedImageSha384
+                - nonce
+              properties:
+                kind:
+                  const: enclave
+                expectedImageSha384: *a1
+                nonce: *a1
+            - type: object
+              required:
+                - kind
+                - sealingPublicKey
+                - sealingKeyId
+              properties:
+                kind:
+                  const: process_signer
+                sealingPublicKey: *a1
+                sealingKeyId: *a1
+        - type: "null"
+    validUntil: *a2
+    venueExtra: *a10
+ConnectComplete:
+  type: object
+  additionalProperties: false
+  required:
+    - signatures
+  properties:
+    signatures:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - stepId
+          - signature
+          - signer
+        properties:
+          stepId: *a1
+          signature: *a1
+          signer: *a1
+    sealedKey:
+      type: object
+      additionalProperties: false
+      description: A sealed key (01 §5.11), when the offer asked for one.
+      required:
+        - enc
+        - ciphertext
+        - aad
+        - recipient
+      properties:
+        enc: *a1
+        ciphertext: *a1
+        aad: *a1
+        recipient: *a1
+    venueExtra: *a10
+ConnectResult:
+  type: object
+  required:
+    - offer
+    - connection
+  properties:
+    offer:
+      $ref: ./connections.yaml#/ConnectOffer
+    connection:
+      description: Null while the offer is 'completing'; poll the offer.
+      oneOf:
+        - $ref: ./connections.yaml#/Connection
+        - type: "null"
+SealingKey:
+  type: object
+  required:
+    - sealingKeyId
+    - publicKey
+    - validUntil
+  properties:
+    sealingKeyId: *a1
+    publicKey: *a1
+    validUntil: *a2
+RenewRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    options:
+      description: The venue file's options.
+      type: object
+      additionalProperties:
+        oneOf:
+          - type: string
+          - type: number
+          - type: boolean
+          - type: "null"
+          - type: array
+            items: *a1
+DisconnectRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - cancelOpenOrders
+  properties:
+    cancelOpenOrders: *a11
+DisconnectResult:
+  type: object
+  required:
+    - connection
+    - venueKeyPage
+    - venueStillLists
+  properties:
+    connection:
+      $ref: ./connections.yaml#/Connection
+    venueKeyPage:
+      description: The venue's own key page, where the user can always revoke.
+      type: *a9
+    venueStillLists:
+      description: Whether the venue still lists our key.
+      type:
+        - boolean
+        - "null"
+PmMovePrepare:
+  type: object
+  additionalProperties: false
+  required: [prepareId, status, walletAddress, steps, expiresAt]
+  properties:
+    prepareId:
+      $ref: ./primitives.yaml#/Uuid
+    status:
+      type: string
+      enum: [deploying, ready_to_sign, queued_quota]
+    walletAddress:
+      type: [string, "null"]
+      pattern: "^0x[0-9a-f]{40}$"
+    steps:
+      type: array
+      maxItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [id, kind, typedData, relayerNonce]
+        properties:
+          id:
+            type: string
+          kind:
+            const: pusd_move
+          typedData:
+            type: object
+            additionalProperties: true
+          relayerNonce:
+            type: string
+            pattern: "^(0|[1-9][0-9]{0,77})$"
+    expiresAt:
+      $ref: ./primitives.yaml#/Instant
+
+PmMoveResult:
+  type: object
+  additionalProperties: false
+  required: [connectionId, status, walletAddress, balanceRaw]
+  properties:
+    connectionId:
+      $ref: ./primitives.yaml#/Uuid
+    status:
+      type: string
+      enum: [authorizing, ready]
+    walletAddress:
+      type: [string, "null"]
+      pattern: "^0x[0-9a-f]{40}$"
+    balanceRaw:
+      type: [string, "null"]
+      pattern: "^(0|[1-9][0-9]{0,77})$"

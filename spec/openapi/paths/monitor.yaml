@@ -1,0 +1,80 @@
+# The API usage monitor (03 §7.6, §12.6). Sources only: no handlers.
+monitor:
+  get:
+    operationId: getMonitor
+    summary: "Read API usage: requests, refusals, rate-limit hits, latency and stream reconnects."
+    description:
+      Per key and for the session, in buckets, from `api_usage_minutes`; venue rejects come from the gateway's
+      order events.
+    tags:
+      - Reads
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: keyId
+        in: query
+        required: false
+        description: Only this API key.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - name: from
+        in: query
+        required: false
+        description: Start of the window, at most 24 hours back.
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: bucket
+        in: query
+        required: false
+        description: Bucket size.
+        schema:
+          type: string
+          enum:
+            - 1m
+            - 5m
+          default: 1m
+    responses:
+      "200":
+        description: The usage view.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/reads.yaml#/MonitorView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                from: 2026-11-07T09:00:00.000Z
+                bucket: 1m
+                series:
+                  - principal: session
+                    points:
+                      - at: 2026-11-07T09:00:00.000Z
+                        requests: 42
+                        refused:
+                          rate_limited: 1
+                        rateLimited: 1
+                        latencyMs:
+                          p50: 12
+                          p95: 80
+                          max: 210
+                        streamConnects: 0
+                venueRejects:
+                  - venue: hyperliquid
+                    code: tick_size
+                    count: 2

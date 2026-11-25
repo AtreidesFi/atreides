@@ -1,0 +1,534 @@
+# Competition shapes (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+Day:
+  type: string
+  pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+  description: A UTC calendar day, YYYY-MM-DD.
+  examples:
+    - 2026-11-07
+SnapshotKind:
+  type: string
+  enum:
+    - daily
+    - final
+CompetitionStatus:
+  type: string
+  enum:
+    - scheduled
+    - live
+    - settling
+    - final
+CompetitionKind:
+  type: string
+  enum:
+    - main
+    - partner
+    - venue
+SnapshotRef:
+  type: object
+  required:
+    - day
+    - kind
+    - sha256
+  properties:
+    day:
+      $ref: "#/Day"
+    kind:
+      $ref: "#/SnapshotKind"
+    sha256:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+      description: SHA-256 of the canonical snapshot document, lowercase hex.
+CompetitionSummary:
+  type: object
+  required:
+    - id
+    - slug
+    - title
+    - kind
+    - status
+    - windowStart
+    - windowEnd
+    - entriesCloseOn
+    - hostDisplayName
+    - venues
+    - entrantCount
+    - joined
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    slug:
+      type: string
+    title:
+      type: string
+    kind:
+      $ref: "#/CompetitionKind"
+    status:
+      $ref: "#/CompetitionStatus"
+    windowStart:
+      $ref: "#/Day"
+    windowEnd:
+      $ref: "#/Day"
+    entriesCloseOn:
+      $ref: "#/Day"
+    hostDisplayName:
+      type:
+        - string
+        - "null"
+    venues:
+      type: array
+      items:
+        $ref: ./primitives.yaml#/VenueId
+    entrantCount:
+      type: integer
+      minimum: 0
+    joined:
+      type:
+        - boolean
+        - "null"
+      description: Whether the signed-in user is in it; null without a session.
+PrizeLine:
+  type: object
+  required:
+    - rankFrom
+    - rankTo
+    - division
+    - kind
+    - funder
+    - amount
+    - terms
+  properties:
+    rankFrom:
+      type: integer
+      minimum: 1
+    rankTo:
+      type: integer
+      minimum: 1
+    division:
+      type:
+        - string
+        - "null"
+    kind:
+      type: string
+      enum:
+        - cash
+        - points_boost
+        - capital_allocation
+        - vault_launch
+    funder:
+      type: string
+      enum:
+        - us
+        - partner
+        - venue
+    amount:
+      oneOf:
+        - $ref: ./primitives.yaml#/MoneyJson
+        - type: "null"
+    terms:
+      type:
+        - string
+        - "null"
+CompetitionRules:
+  type: object
+  required:
+    - ruleKey
+    - scoreFn
+    - params
+    - text
+  properties:
+    ruleKey:
+      type: string
+    scoreFn:
+      type: string
+    params:
+      type: object
+      additionalProperties:
+        type:
+          - string
+          - number
+    text:
+      type: string
+      description: The rule in plain words (11 §3).
+CompetitionDetail:
+  allOf:
+    - $ref: "#/CompetitionSummary"
+    - type: object
+      required:
+        - entryPolicy
+        - rules
+        - prizes
+        - latestSnapshot
+      properties:
+        entryPolicy:
+          type: string
+          enum:
+            - open
+            - members
+            - code
+        rules:
+          $ref: "#/CompetitionRules"
+        prizes:
+          type: array
+          items:
+            $ref: "#/PrizeLine"
+        latestSnapshot:
+          oneOf:
+            - $ref: "#/SnapshotRef"
+            - type: "null"
+Entry:
+  type: object
+  required:
+    - competitionId
+    - status
+    - joinedAt
+    - startDay
+  properties:
+    competitionId:
+      $ref: ./primitives.yaml#/Uuid
+    status:
+      type: string
+      enum:
+        - active
+        - withdrawn
+    joinedAt:
+      $ref: ./primitives.yaml#/Instant
+    startDay:
+      $ref: "#/Day"
+MyEntry:
+  allOf:
+    - $ref: "#/Entry"
+    - type: object
+      required:
+        - competition
+        - rank
+        - reason
+      properties:
+        competition:
+          $ref: "#/CompetitionSummary"
+        rank:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+        reason:
+          type:
+            - string
+            - "null"
+JoinCompetitionRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - acceptRules
+  properties:
+    acceptRules:
+      const: true
+      description: "Must be true: the entrant accepted the rules text."
+    joinCode:
+      type: string
+      minLength: 1
+      maxLength: 64
+StandingRow:
+  type: object
+  required:
+    - rank
+    - token
+    - displayName
+    - division
+    - score
+    - totalReturn
+    - maxDrawdown
+    - observationDays
+    - activeDays
+  properties:
+    rank:
+      type: integer
+      minimum: 1
+    token:
+      type: string
+    displayName:
+      type:
+        - string
+        - "null"
+    division:
+      type:
+        - string
+        - "null"
+    score:
+      $ref: ./primitives.yaml#/DecStr
+    totalReturn:
+      $ref: ./primitives.yaml#/DecStr
+    maxDrawdown:
+      $ref: ./primitives.yaml#/DecStr
+    observationDays:
+      type: integer
+      minimum: 0
+    activeDays:
+      type: integer
+      minimum: 0
+StandingsPage:
+  type: object
+  required:
+    - snapshot
+    - rows
+  properties:
+    snapshot:
+      oneOf:
+        - type: object
+          required:
+            - day
+            - kind
+            - sha256
+            - cutoffAt
+          properties:
+            day:
+              $ref: "#/Day"
+            kind:
+              $ref: "#/SnapshotKind"
+            sha256:
+              type: string
+              pattern: ^[0-9a-f]{64}$
+              description: SHA-256 of the canonical snapshot document, lowercase hex.
+            cutoffAt:
+              $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    rows:
+      type: array
+      items:
+        $ref: "#/StandingRow"
+SnapshotMeta:
+  type: object
+  required:
+    - day
+    - kind
+    - sha256
+    - createdAt
+    - rankedCount
+  properties:
+    day:
+      $ref: "#/Day"
+    kind:
+      $ref: "#/SnapshotKind"
+    sha256:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+      description: SHA-256 of the canonical snapshot document, lowercase hex.
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    rankedCount:
+      type: integer
+      minimum: 0
+SnapshotDocument:
+  type: object
+  required:
+    - document
+    - sha256
+  properties:
+    document:
+      type: string
+      description: The exact canonical text that sha256 covers.
+    sha256:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+      description: SHA-256 of the canonical snapshot document, lowercase hex.
+MyStanding:
+  type: object
+  required:
+    - entry
+    - status
+    - rank
+    - reason
+    - daysNeeded
+    - score
+    - totalReturn
+    - maxDrawdown
+    - observationDays
+    - activeDays
+    - gapToAbove
+    - gapToPaidLine
+    - gates
+    - accounts
+    - equityUsd
+    - pnlUsd
+    - creditVolumeUsd
+    - series
+    - review
+  properties:
+    entry:
+      $ref: "#/Entry"
+    status:
+      type: string
+      enum:
+        - ranked
+        - unranked
+        - pending
+    rank:
+      type:
+        - integer
+        - "null"
+      minimum: 1
+    reason:
+      type:
+        - string
+        - "null"
+    daysNeeded:
+      type:
+        - integer
+        - "null"
+      minimum: 0
+    score:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    totalReturn:
+      $ref: ./primitives.yaml#/DecStr
+    maxDrawdown:
+      $ref: ./primitives.yaml#/DecStr
+    observationDays:
+      type: integer
+      minimum: 0
+    activeDays:
+      type: integer
+      minimum: 0
+    gapToAbove:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    gapToPaidLine:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    gates:
+      type: array
+      items:
+        type: object
+        required:
+          - name
+          - value
+          - threshold
+          - passed
+        properties:
+          name:
+            type: string
+          value:
+            $ref: ./primitives.yaml#/DecStr
+          threshold:
+            $ref: ./primitives.yaml#/DecStr
+          passed:
+            type: boolean
+    accounts:
+      type: array
+      items:
+        type: object
+        required:
+          - venue
+          - label
+          - counted
+          - coverage
+          - state
+        properties:
+          venue:
+            $ref: ./primitives.yaml#/VenueId
+          label:
+            type: string
+          counted:
+            type: boolean
+          coverage:
+            oneOf:
+              - $ref: ./primitives.yaml#/DecStr
+              - type: "null"
+          state:
+            type: string
+    equityUsd:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    pnlUsd:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    creditVolumeUsd:
+      $ref: ./primitives.yaml#/DecStr
+    series:
+      type: array
+      items:
+        type: object
+        required:
+          - day
+          - ret
+          - observation
+          - active
+        properties:
+          day:
+            $ref: "#/Day"
+          ret:
+            oneOf:
+              - $ref: ./primitives.yaml#/DecStr
+              - type: "null"
+          observation:
+            type: boolean
+          active:
+            type: boolean
+    review:
+      type: string
+      enum:
+        - none
+        - under_review
+MyPrize:
+  type: object
+  required:
+    - awardId
+    - competition
+    - rank
+    - kind
+    - funder
+    - amount
+    - state
+    - stateText
+    - needsAddressConsent
+  properties:
+    awardId:
+      $ref: ./primitives.yaml#/Uuid
+    competition:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          $ref: ./primitives.yaml#/Uuid
+        title:
+          type: string
+    rank:
+      type: integer
+      minimum: 1
+    kind:
+      type: string
+      enum:
+        - cash
+        - points_boost
+        - capital_allocation
+        - vault_launch
+    funder:
+      type: string
+      enum:
+        - us
+        - partner
+        - venue
+    amount:
+      oneOf:
+        - $ref: ./primitives.yaml#/MoneyJson
+        - type: "null"
+    state:
+      type: string
+      enum:
+        - earned
+        - under_review
+        - approved
+        - claimable
+        - paid
+        - fulfilled
+        - void
+    stateText:
+      type: string
+    needsAddressConsent:
+      type: boolean

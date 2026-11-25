@@ -1,0 +1,384 @@
+# Rewards, claims, tier, statement and public volume: the shapes of 07 §2.4 on the wire (Money as MoneyJson, UnixMs as Instant). Owner 07.
+RewardBasis:
+  type: string
+  enum:
+    - earning
+    - kept_for_users
+    - no_charge_side
+    - below_reference
+    - zero_fee
+    - unattributed
+    - vault
+    - billed
+ShareKind:
+  type: string
+  enum:
+    - referral
+    - net
+    - route_refund
+ClaimState:
+  type: string
+  enum:
+    - created
+    - held
+    - queued
+    - in_payout
+    - paid
+    - cancelled
+RewardBalances:
+  type: object
+  required:
+    - asset
+    - pending
+    - claimable
+    - underReview
+    - claimed
+    - paid
+  properties:
+    asset:
+      $ref: ./primitives.yaml#/AssetId
+    pending:
+      $ref: ./primitives.yaml#/DecStr
+    claimable:
+      $ref: ./primitives.yaml#/DecStr
+    underReview:
+      $ref: ./primitives.yaml#/DecStr
+    claimed:
+      $ref: ./primitives.yaml#/DecStr
+    paid:
+      $ref: ./primitives.yaml#/DecStr
+ReferralBalances:
+  type: object
+  required:
+    - asset
+    - pending
+    - claimable
+    - underReview
+    - claimed
+    - paid
+    - profileId
+  properties:
+    asset:
+      $ref: ./primitives.yaml#/AssetId
+    pending:
+      $ref: ./primitives.yaml#/DecStr
+    claimable:
+      $ref: ./primitives.yaml#/DecStr
+    underReview:
+      $ref: ./primitives.yaml#/DecStr
+    claimed:
+      $ref: ./primitives.yaml#/DecStr
+    paid:
+      $ref: ./primitives.yaml#/DecStr
+    profileId:
+      $ref: ./primitives.yaml#/Uuid
+Claim:
+  type: object
+  required:
+    - id
+    - status
+    - amount
+    - destination
+    - createdAt
+    - txHash
+    - payoutStatus
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    status:
+      $ref: "#/ClaimState"
+    amount:
+      $ref: ./primitives.yaml#/MoneyJson
+    destination:
+      type: string
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    txHash:
+      type:
+        - string
+        - "null"
+    payoutStatus:
+      oneOf:
+        - $ref: ./primitives.yaml#/PayoutState
+        - type: "null"
+Rewards:
+  type: object
+  required:
+    - userId
+    - referral
+    - prizes
+    - claimableUsdc
+    - minClaimUsdc
+    - waiting
+    - openClaim
+    - claimsHalted
+  properties:
+    userId:
+      $ref: ./primitives.yaml#/Uuid
+    referral:
+      type: array
+      items:
+        $ref: "#/ReferralBalances"
+    prizes:
+      description: Cash prize credits, USDC.
+      oneOf:
+        - $ref: "#/RewardBalances"
+        - type: "null"
+    returnedFees:
+      description: Returned route fees, grouped by asset.
+      type: array
+      items:
+        $ref: "#/RewardBalances"
+    claimableUsdc:
+      description: Claimable converted to USDC at fresh rates; null when any claimable asset lacks a fresh rate.
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    minClaimUsdc:
+      $ref: ./primitives.yaml#/DecStr
+    waiting:
+      description: Why pending shares are not claimable yet.
+      type: array
+      items:
+        type: object
+        required:
+          - venue
+          - day
+          - state
+          - amount
+          - reason
+        properties:
+          venue:
+            $ref: ./primitives.yaml#/VenueId
+          day:
+            $ref: ./reads.yaml#/UtcDay
+          state:
+            type: string
+            enum:
+              - open
+              - awaiting_record
+              - awaiting_manual
+              - awaiting_payout
+              - held
+          amount:
+            $ref: ./primitives.yaml#/MoneyJson
+          reason:
+            type: string
+            enum:
+              - day_open
+              - record_pending
+              - manual_record
+              - payout_pending
+              - held
+    openClaim:
+      oneOf:
+        - $ref: "#/Claim"
+        - type: "null"
+    claimsHalted:
+      type: boolean
+StatementLine:
+  type: object
+  required:
+    - feeEventId
+    - venue
+    - venueFillId
+    - instrument
+    - side
+    - notional
+    - feeAsked
+    - feeReceived
+    - rewardBasis
+    - shares
+    - filledAt
+  properties:
+    feeEventId:
+      $ref: ./primitives.yaml#/Uuid
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    venueFillId:
+      type: string
+    instrument:
+      type: string
+    side:
+      type: string
+      enum:
+        - buy
+        - sell
+    notional:
+      $ref: ./primitives.yaml#/MoneyJson
+    feeAsked:
+      $ref: ./primitives.yaml#/MoneyJson
+    feeReceived:
+      $ref: ./primitives.yaml#/MoneyJson
+    rewardBasis:
+      $ref: "#/RewardBasis"
+    shares:
+      type: array
+      items:
+        type: object
+        required:
+          - kind
+          - amount
+          - status
+        properties:
+          kind:
+            $ref: "#/ShareKind"
+          amount:
+            $ref: ./primitives.yaml#/MoneyJson
+          status:
+            type: string
+    filledAt:
+      $ref: ./primitives.yaml#/Instant
+TierView:
+  type: object
+  required:
+    - tier
+    - volume30dUsd
+    - matchedTier
+    - graceUntil
+    - nextThresholdUsd
+    - asOf
+  properties:
+    tier:
+      type: string
+    volume30dUsd:
+      $ref: ./primitives.yaml#/DecStr
+    matchedTier:
+      type:
+        - string
+        - "null"
+    graceUntil:
+      oneOf:
+        - $ref: ./reads.yaml#/UtcDay
+        - type: "null"
+    nextThresholdUsd:
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    asOf:
+      oneOf:
+        - $ref: ./reads.yaml#/UtcDay
+        - type: "null"
+ProfileRewardsView:
+  type: object
+  description: "What a profile's owner sees: members, fee-paying volume and the accrued share; never our total fee or members' P&L."
+  required:
+    - profileId
+    - members
+    - feePayingVolumeUsd
+    - accrued
+    - byDay
+  properties:
+    profileId:
+      $ref: ./primitives.yaml#/Uuid
+    members:
+      type: integer
+      minimum: 0
+    feePayingVolumeUsd:
+      $ref: ./primitives.yaml#/DecStr
+    accrued:
+      type: array
+      items:
+        $ref: "#/RewardBalances"
+    byDay:
+      type: array
+      items:
+        type: object
+        required:
+          - day
+          - feePayingVolumeUsd
+          - accruedUsdc
+        properties:
+          day:
+            $ref: ./reads.yaml#/UtcDay
+          feePayingVolumeUsd:
+            $ref: ./primitives.yaml#/DecStr
+          accruedUsdc:
+            oneOf:
+              - $ref: ./primitives.yaml#/DecStr
+              - type: "null"
+PublicVolumeDay:
+  type: object
+  required:
+    - day
+    - complete
+    - venues
+  properties:
+    day:
+      $ref: ./reads.yaml#/UtcDay
+    complete:
+      type: boolean
+    venues:
+      type: array
+      items:
+        type: object
+        required:
+          - venue
+          - reconciled
+          - volumeUsd
+          - takerVolumeUsd
+          - makerVolumeUsd
+          - feesUsd
+          - trades
+        properties:
+          venue:
+            $ref: ./primitives.yaml#/VenueId
+          reconciled:
+            type: boolean
+          volumeUsd:
+            $ref: ./primitives.yaml#/DecStr
+          takerVolumeUsd:
+            $ref: ./primitives.yaml#/DecStr
+          makerVolumeUsd:
+            $ref: ./primitives.yaml#/DecStr
+          feesUsd:
+            $ref: ./primitives.yaml#/DecStr
+          trades:
+            type: integer
+            minimum: 0
+PublicFill:
+  type: object
+  required:
+    - venue
+    - venueFillId
+    - txRef
+    - instrument
+    - side
+    - liquidity
+    - notional
+    - ourFee
+    - at
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    venueFillId:
+      type: string
+    txRef:
+      type:
+        - string
+        - "null"
+    instrument:
+      type: string
+    side:
+      type: string
+      enum:
+        - buy
+        - sell
+    liquidity:
+      oneOf:
+        - type: string
+          enum:
+            - maker
+            - taker
+        - type: "null"
+    notional:
+      $ref: ./primitives.yaml#/MoneyJson
+    ourFee:
+      $ref: ./primitives.yaml#/MoneyJson
+    at:
+      $ref: ./primitives.yaml#/Instant
+CreateClaimRequest:
+  type: object
+  additionalProperties: false
+  description: "Empty: the destination is the payout wallet stored on the claim."
+  properties: {}

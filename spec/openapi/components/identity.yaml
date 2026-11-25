@@ -1,0 +1,330 @@
+# Identity, sessions, wallets and the second factor (03 §4, §7.1, §8). Every request object is closed.
+Empty:
+  type: object
+  description: An answer with nothing to say; the call worked.
+  additionalProperties: false
+  examples: [{}]
+NoncePurpose:
+  type: string
+  description: What a nonce may be used for. A nonce works for one purpose only.
+  enum:
+    - sign_in
+    - link_wallet
+    - move_wallet
+    - api_key_grant
+    - link_account
+    - delete_account
+    - profile_owner_change
+NonceRequest:
+  type: object
+  additionalProperties: false
+  required: [purpose]
+  properties:
+    purpose:
+      $ref: "#/NoncePurpose"
+Nonce:
+  type: object
+  additionalProperties: false
+  required: [nonce, expiresAt]
+  properties:
+    nonce:
+      type: string
+      description: 24 characters, letters and digits. Put it in the message to sign.
+      pattern: "^[A-Za-z0-9]{24}$"
+    expiresAt:
+      $ref: ./primitives.yaml#/Instant
+    keyText:
+      type: string
+      description: For purpose `api_key_grant` only. The key text the new key will have; the grant names it.
+      pattern: "^(live|test)_[0-9A-HJKMNP-TV-Z]{26}$"
+Wallet:
+  type: object
+  additionalProperties: false
+  required: [walletId, address, chain, verifiedAt, isPayoutWallet, signInAllowed]
+  properties:
+    walletId:
+      $ref: ./primitives.yaml#/Uuid
+    address:
+      type: string
+      description: An EVM address in lowercase; other chains as the chain spells it.
+      minLength: 1
+      maxLength: 128
+    chain:
+      $ref: ./primitives.yaml#/ChainFamily
+    verifiedAt:
+      $ref: ./primitives.yaml#/Instant
+    isPayoutWallet:
+      type: boolean
+    signInAllowed:
+      type: boolean
+Identity:
+  type: object
+  additionalProperties: false
+  required: [identityId, provider, handle, linkedAt]
+  properties:
+    identityId:
+      $ref: ./primitives.yaml#/Uuid
+    provider:
+      type: string
+      enum: [telegram, discord]
+    handle:
+      type: [string, "null"]
+    linkedAt:
+      $ref: ./primitives.yaml#/Instant
+SessionInfo:
+  type: object
+  additionalProperties: false
+  required: [sessionId, method, createdAt, lastSeenAt, ip, userAgent, current]
+  properties:
+    sessionId:
+      $ref: ./primitives.yaml#/Uuid
+    method:
+      type: string
+      enum: [siwe, telegram, discord]
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    lastSeenAt:
+      $ref: ./primitives.yaml#/Instant
+    ip:
+      type: [string, "null"]
+    userAgent:
+      type: [string, "null"]
+    current:
+      type: boolean
+      description: True for the session that made this call.
+Me:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      userId,
+      kind,
+      createdAt,
+      wallets,
+      identities,
+      payoutWallet,
+      secondFactor,
+      features,
+      termsVersionRequired,
+      termsAcceptedVersion,
+    ]
+  properties:
+    userId:
+      $ref: ./primitives.yaml#/Uuid
+    kind:
+      $ref: ./primitives.yaml#/AccountKind
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    wallets:
+      type: array
+      items:
+        $ref: "#/Wallet"
+    identities:
+      type: array
+      items:
+        $ref: "#/Identity"
+    payoutWallet:
+      oneOf:
+        - $ref: "#/Wallet"
+        - type: "null"
+    secondFactor:
+      type: string
+      enum: ["off", "on"]
+    features:
+      type: object
+      description: The flags the web needs to decide what to show. Never a secret.
+      additionalProperties:
+        type: boolean
+    termsVersionRequired:
+      description:
+        The Terms version the operator requires (`ATR_TERMS_VERSION`), or null when none is required. While the
+        user has not accepted exactly this version an opening order is refused `terms_not_accepted`.
+      oneOf:
+        - $ref: "#/TermsVersion"
+        - type: "null"
+    termsAcceptedVersion:
+      description: The Terms version the user accepted last, or null. This is no ordering, and only an acceptance of exactly the required version lifts the refusal.
+      oneOf:
+        - $ref: "#/TermsVersion"
+        - type: "null"
+TermsVersion:
+  type: string
+  pattern: ^[A-Za-z0-9._-]{1,32}$
+TermsAcceptRequest:
+  type: object
+  additionalProperties: false
+  required: [version]
+  properties:
+    version:
+      $ref: "#/TermsVersion"
+TermsAccepted:
+  type: object
+  additionalProperties: false
+  required: [termsAcceptedVersion]
+  properties:
+    termsAcceptedVersion:
+      $ref: "#/TermsVersion"
+SignedIn:
+  type: object
+  additionalProperties: false
+  required: [user]
+  properties:
+    user:
+      $ref: "#/Me"
+SiweSignInRequest:
+  type: object
+  additionalProperties: false
+  required: [message, signature]
+  properties:
+    message:
+      type: string
+      description: The EIP-4361 message, as signed.
+      minLength: 1
+      maxLength: 4096
+    signature:
+      $ref: "#/WalletSignature"
+    invite:
+      type: string
+      description: An invite code or a pasted invite link.
+      minLength: 1
+      maxLength: 200
+    ref:
+      type: string
+      description: A referral code.
+      minLength: 1
+      maxLength: 200
+WalletSignature:
+  allOf:
+    - $ref: ./primitives.yaml#/Hex
+    - maxLength: 8194
+TelegramFields:
+  type: object
+  description: The login widget fields as received, including `hash`, and any field Telegram adds.
+  minProperties: 1
+  maxProperties: 32
+  additionalProperties:
+    type: string
+    maxLength: 2048
+TelegramSignInRequest:
+  type: object
+  additionalProperties: false
+  required: [fields]
+  properties:
+    fields:
+      $ref: "#/TelegramFields"
+    invite:
+      type: string
+      description: An invite code or a pasted invite link.
+      minLength: 1
+      maxLength: 200
+    ref:
+      type: string
+      description: A referral code.
+      minLength: 1
+      maxLength: 200
+LinkTelegramRequest:
+  type: object
+  additionalProperties: false
+  required: [fields]
+  properties:
+    fields:
+      $ref: "#/TelegramFields"
+WalletProof:
+  type: object
+  description: A SIWE message and its signature.
+  additionalProperties: false
+  required: [message, signature]
+  properties:
+    message:
+      type: string
+      minLength: 1
+      maxLength: 4096
+    signature:
+      $ref: "#/WalletSignature"
+SiweProof:
+  type: object
+  additionalProperties: false
+  required: [kind, message, signature]
+  properties:
+    kind:
+      const: siwe
+    message:
+      type: string
+      minLength: 1
+      maxLength: 4096
+    signature:
+      $ref: "#/WalletSignature"
+IdentityProof:
+  type: object
+  additionalProperties: false
+  required: [kind, fields]
+  properties:
+    kind:
+      const: telegram
+    fields:
+      $ref: "#/TelegramFields"
+DeleteAccountRequest:
+  type: object
+  additionalProperties: false
+  required: [confirm, proof]
+  properties:
+    confirm:
+      const: DELETE
+    proof:
+      oneOf:
+        - $ref: "#/SiweProof"
+        - $ref: "#/IdentityProof"
+Deleted:
+  type: object
+  additionalProperties: false
+  required: [deletedAt]
+  properties:
+    deletedAt:
+      $ref: ./primitives.yaml#/Instant
+RevokedCount:
+  type: object
+  additionalProperties: false
+  required: [revoked]
+  properties:
+    revoked:
+      type: integer
+      minimum: 0
+SecurityState:
+  type: object
+  additionalProperties: false
+  required: [totp, recoveryCodesLeft]
+  properties:
+    totp:
+      type: string
+      enum: ["off", pending, "on"]
+    recoveryCodesLeft:
+      type: integer
+      minimum: 0
+TotpSetup:
+  type: object
+  additionalProperties: false
+  required: [otpauthUri, secretBase32]
+  properties:
+    otpauthUri:
+      type: string
+    secretBase32:
+      type: string
+TotpEnableRequest:
+  type: object
+  additionalProperties: false
+  required: [code]
+  properties:
+    code:
+      type: string
+      description: The 6-digit code from the authenticator app.
+      pattern: "^[0-9]{6}$"
+RecoveryCodes:
+  type: object
+  additionalProperties: false
+  required: [recoveryCodes]
+  properties:
+    recoveryCodes:
+      type: array
+      description: Single-use codes. Shown once.
+      items:
+        type: string

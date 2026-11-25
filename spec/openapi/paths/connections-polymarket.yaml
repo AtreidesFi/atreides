@@ -1,0 +1,204 @@
+moveFunds:
+  post:
+    operationId: preparePmMoveFunds
+    summary: Prepare an owner-signed pUSD transfer from a legacy Polymarket Safe.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - feature_unavailable
+      - insufficient_balance
+      - no_deposit_wallet
+      - recipient_not_owner
+      - offer_expired
+      - prepare_expired
+      - relayer_failed
+      - idempotency_conflict
+      - unavailable
+    security:
+      - session: []
+    parameters:
+      - name: connectionId
+        in: path
+        required: true
+        description: The caller’s Polymarket connection id.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [fromWallet, amount]
+            properties:
+              fromWallet:
+                type: string
+                pattern: "^0x[0-9a-fA-F]{40}$"
+              amount:
+                $ref: ../components/primitives.yaml#/DecStr
+          example:
+            fromWallet: "0x1111111111111111111111111111111111111111"
+            amount: "0.45"
+    responses:
+      "200":
+        description: A frozen pUSD transfer to the owner’s resolved Deposit Wallet, a deployment status, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/PmMovePrepare
+                - &refusal
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                prepareId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: deploying
+                walletAddress: null
+                steps: []
+                expiresAt: 2026-11-07T09:30:05.000Z
+      "404":
+        description: The connection or source Safe is unavailable to this session.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Polymarket Safe preparation was not found.
+              retryable: false
+              requestId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+prepare:
+  get:
+    operationId: getPmMovePreparation
+    summary: Read a Polymarket pUSD preparation or poll for the owner’s Deposit Wallet.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: [prepare_expired, relayer_failed, recipient_not_owner, insufficient_balance, unavailable]
+    security:
+      - session: []
+    parameters:
+      - name: prepareId
+        in: path
+        required: true
+        description: The preparation id returned by move-funds.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The current preparation or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/PmMovePrepare
+                - *refusal
+            example:
+              ok: true
+              data:
+                prepareId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: deploying
+                walletAddress: null
+                steps: []
+                expiresAt: 2026-11-07T09:30:05.000Z
+complete:
+  post:
+    operationId: completePmMoveFunds
+    summary: Submit the owner’s frozen pUSD transfer or poll the submitted transfer.
+    description: Use the same preparation and owner signature to poll an authorizing transfer.
+    tags: [Accounts]
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - prepare_expired
+      - offer_expired
+      - signer_mismatch
+      - relayer_failed
+      - recipient_not_owner
+      - insufficient_balance
+      - feature_unavailable
+      - unknown_outcome
+      - idempotency_conflict
+      - invalid_request
+      - unavailable
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [prepareId, signatures]
+            properties:
+              prepareId:
+                $ref: ../components/primitives.yaml#/Uuid
+              signatures:
+                type: array
+                minItems: 1
+                maxItems: 1
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [stepId, signature]
+                  properties:
+                    stepId:
+                      const: pusd-move
+                    signature:
+                      type: string
+                      pattern: "^0x[0-9a-fA-F]{130}$"
+          example:
+            prepareId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+            signatures:
+              - stepId: pusd-move
+                signature: "0x0000000000000000000000000000000000000000000000000000000000000000\
+                  00000000000000000000000000000000000000000000000000000000000000001b"
+    responses:
+      "200":
+        description: The transfer status or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/connections.yaml#/PmMoveResult
+                - *refusal
+            example:
+              ok: true
+              data:
+                connectionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: authorizing
+                walletAddress: null
+                balanceRaw: null

@@ -1,0 +1,130 @@
+# Instruments (03 §7.3; rows from 04 `instruments`).
+instruments:
+  get:
+    operationId: listInstruments
+    summary: List instruments, filtered and paged.
+    tags:
+      - Venues
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - cursor_invalid
+    security: &a1 []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: cls
+        in: query
+        required: false
+        description: Only this instrument class.
+        schema:
+          $ref: ../components/primitives.yaml#/InstrumentClass
+      - name: q
+        in: query
+        required: false
+        description: Search text over base, quote and venue symbol.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      - name: status
+        in: query
+        required: false
+        description: Only instruments in this status.
+        schema:
+          type: string
+          enum:
+            - trading
+            - reduce_only
+            - halted
+            - delisted
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/venues.yaml#/InstrumentInfo
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - &a2
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - &a3
+                  instrumentId: hyperliquid:BTC
+                  venue: hyperliquid
+                  venueSymbol: BTC
+                  cls: perp
+                  underlying: crypto
+                  shareRate: null
+                  base: BTC
+                  quote: USDC
+                  feeAsset: usdc
+                  chargedSide: both
+                  tick: "1"
+                  lot: "0.00001"
+                  minSize: null
+                  minNotional: "10"
+                  maxLeverage: 40
+                  status: trading
+                  venueExtra: {}
+              nextCursor: null
+instrument:
+  parameters:
+    - name: instrumentId
+      in: path
+      required: true
+      description: The instrument id, with the colon URL-encoded.
+      schema:
+        $ref: ../components/venues.yaml#/InstrumentId
+  get:
+    operationId: getInstrument
+    summary: Read one instrument.
+    tags:
+      - Venues
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    security: *a1
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/venues.yaml#/InstrumentInfo
+                - *a2
+            example:
+              ok: true
+              data: *a3

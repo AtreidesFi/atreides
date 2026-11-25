@@ -1,0 +1,215 @@
+# The wire types every operation shares (01 §5.12 rule 4, §5.8; 03 §13.1). Decimals are strings, ids are UUIDv7, instants
+# are millisecond RFC 3339 with Z. The patterns repeat DEC_PATTERN, the id pattern and CLIENT_ORDER_ID_PATTERN of
+# @atr/core, and the enums repeat its registries; test/primitives.test.ts fails when either side moves alone.
+DecStr:
+  type: string
+  description: A canonical decimal, at most 20 integer and 18 fraction digits. Money and sizes are never JSON numbers.
+  pattern: "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$"
+  examples: ["0", "-12.5", "0.000000000000000001"]
+Instant:
+  type: string
+  format: date-time
+  description: A moment in UTC, always with three fraction digits and a Z.
+  pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+  examples: ["2026-11-07T09:30:00.000Z"]
+Uuid:
+  type: string
+  format: uuid
+  description: An id, a lowercase UUIDv7.
+  pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+  examples: ["01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80"]
+Hex:
+  type: string
+  description: Bytes as 0x and an even number of hex digits.
+  pattern: "^0x([0-9a-fA-F]{2})*$"
+  examples: ["0x", "0xdeadbeef"]
+ClientOrderId:
+  type: string
+  description: The caller's id for an order. Sending the same id with the same body again returns the stored order.
+  pattern: "^[A-Za-z0-9._:-]{1,64}$"
+  examples: ["bot-7-000123"]
+AssetId:
+  type: string
+  description: An asset id, lowercase.
+  pattern: "^[a-z0-9][a-z0-9._-]{0,31}$"
+  examples: ["usdc"]
+MoneyJson:
+  type: object
+  description: An amount of one asset.
+  additionalProperties: false
+  required: [amount, asset]
+  properties:
+    amount:
+      $ref: "#/DecStr"
+    asset:
+      $ref: "#/AssetId"
+  examples:
+    - { amount: "25.5", asset: usdc }
+VenueKind:
+  type: string
+  description: The kind of a venue.
+  enum:
+    - dex
+    - cex
+    - prediction
+    - onchain_swap
+ChainFamily:
+  type: string
+  description: The family of the chain a venue's wallet lives on.
+  enum:
+    - evm
+    - solana
+    - starknet
+    - cosmos
+VenueId:
+  type: string
+  description: A venue id (01 §5.8).
+  enum:
+    - hyperliquid
+    - aster
+    - lighter
+    - pacifica
+    - grvt
+    - extended
+    - nado
+    - derive
+    - dydx
+    - sodex
+    - txflow
+    - arcus
+    - "polymarket-perps"
+    - risex
+    - qfex
+    - polymarket
+    - kalshi
+    - "robinhood-chain"
+    - okx
+    - bybit
+    - bitget
+    - gate
+    - kraken
+    - binance
+    - "lighter-rh"
+Region:
+  type: string
+  description: A region the gateway runs in.
+  enum:
+    - tyo
+    - sin
+    - lon
+    - ams
+    - dub
+InstrumentClass:
+  type: string
+  description: The class of an instrument.
+  enum:
+    - perp
+    - "hip3_perp"
+    - rwa_perp
+    - spot
+    - outcome
+    - option
+    - prediction
+    - stock_token
+Mode:
+  type: string
+  description: How an order reaches a venue, from the bot (direct), through the gateway, or from the terminal.
+  enum:
+    - direct
+    - gateway
+    - terminal
+KeyPlace:
+  type: string
+  description: Where the key that signs for the venue lives.
+  enum:
+    - bot
+    - browser
+    - wallet
+    - signer
+    - enclave
+VenueState:
+  type: string
+  description: The state of a gate unit. The values keep their decided spelling.
+  enum:
+    - closed
+    - "d-only"
+    - open
+    - "reduce-only"
+    - paused
+GateStage:
+  type: string
+  description: The stage a gate unit has passed.
+  enum:
+    - "S"
+    - "T"
+    - "C"
+    - "P"
+    - open
+CustodyClass:
+  type: string
+  description: What the key held for the venue can do.
+  enum:
+    - venue_trade_only
+    - owner_withdraw
+CredentialHolder:
+  type: string
+  description: Where a stored credential lives.
+  enum:
+    - bot
+    - browser
+    - signer
+    - enclave
+CredentialKind:
+  type: string
+  description: The kind of a stored credential.
+  enum:
+    - agent
+    - api_key_trade
+    - api_key_read
+    - session_key
+    - proxy_key
+    - authenticator
+    - linked_signer
+    - stark_key
+    - fast_api_key
+    - oauth_token
+AccountKind:
+  type: string
+  description: The kind of a venue account.
+  enum:
+    - user
+    - internal
+    - test
+    - fleet
+OrderState:
+  type: string
+  description: The state of an order.
+  enum:
+    - pending
+    - accepted
+    - resting
+    - partially_filled
+    - filled
+    - cancelled
+    - rejected
+    - unknown
+ShareState:
+  type: string
+  description: The state of a reward share.
+  enum:
+    - pending
+    - claimable
+    - claimed
+    - paid
+    - held
+    - void
+PayoutState:
+  type: string
+  description: The state of a payout.
+  enum:
+    - pending
+    - signed
+    - sent
+    - confirmed
+    - reconciled
+    - halted

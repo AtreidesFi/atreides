@@ -1,0 +1,788 @@
+# The vault endpoints of v1 (12 §15.4.1): public reads of fixtures-only data behind `screens.vaults`, and the caller's own
+# seats. The mutations of §15.4.2 are not mounted in v1. With the flag off every route answers `feature_unavailable`
+# (VT-100). `/v1/vaults/matrix` and `/v1/vaults/mine` are static segments matched before `{id}`.
+vaults:
+  get:
+    operationId: listVaults
+    tags: [Vaults]
+    summary: List vaults, newest first.
+    description: >-
+      Our vaults only, on every shelf. Without `status` the list leaves out vaults that are `created` or `closed`.
+    x-owner: "12"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, cursor_invalid]
+    security: []
+    parameters:
+      - name: shelf
+        in: query
+        required: false
+        schema:
+          $ref: ../components/vaults.yaml#/VaultShelf
+      - name: kind
+        in: query
+        required: false
+        schema:
+          $ref: ../components/vaults.yaml#/VaultKind
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: ../components/vaults.yaml#/VaultStatus
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of vaults, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data, nextCursor]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/vaults.yaml#/VaultSummary
+                    nextCursor:
+                      type: [string, "null"]
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  name: Fixture Balanced Perps
+                  managerHandle: fixture_manager_1
+                  kind: option1
+                  cls: user
+                  shelf: balanced
+                  venue: hyperliquid
+                  status: trading
+                  tradingState: active
+                  nav: "125000.5"
+                  navAt: "2026-11-07T09:30:00.000Z"
+                  index: "1.0842"
+                  returnSinceStart: "0.0842"
+                  return30d: "0.0213"
+                  maxDrawdown: "0.0615"
+                  sharpe90d: "1.37"
+                  capacityCap: "500000"
+                  capacityUsed: "125000.5"
+                  managerStakeShare: "0.12"
+                  lpCount: 14
+                  historyDays: 142
+                  verified: true
+              nextCursor: null
+  post:
+    operationId: createVaultV1
+    tags: [Vaults]
+    summary: Create a vault with a reviewed mandate.
+    x-owner: "12"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, invalid_request, not_found, forbidden, idempotency_conflict]
+    security: [{ session: [] }]
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            {
+              type: object,
+              additionalProperties: false,
+              required: [mandate, name],
+              properties:
+                {
+                  mandate: { $ref: ../components/vaults.yaml#/MandateDoc },
+                  name: { type: string, minLength: 1, maxLength: 48 },
+                },
+            }
+          example:
+            {
+              "mandate":
+                {
+                  "schema": "mandate/v1",
+                  "kind": "option1",
+                  "cls": "user",
+                  "venue": "hyperliquid",
+                  "instruments": ["BTC-PERP", "ETH-PERP"],
+                  "maxLeverage": 5,
+                  "maxPositionNotional": "100000",
+                  "thinMarketCap": "0.02",
+                  "drawdownStop": "0.2",
+                  "managerStakeMin": "0.1",
+                  "performanceFee": "0.2",
+                  "platformShareOfPerformanceFee": "0.25",
+                  "managementFee": "0",
+                  "ourFeeCap": "0.0003",
+                  "capacityCap": "500000",
+                  "cashBuffer": "0.05",
+                  "redemptionWindow": "daily",
+                  "lockupMs": 604800000,
+                  "minDeposit": "100",
+                  "smallestOrderFraction": "0.001",
+                  "noticePeriodMs": 1209600000,
+                  "declaredActivity": { "maxQuietMs": 259200000, "windDownAfterMs": 1209600000 },
+                  "tradingPath": "gateway",
+                  "privacy": { "kind": "positions_delayed", "delayMs": 3600000 },
+                  "shelf": "balanced",
+                  "feeAddresses": { "manager": "0xfixturemanager", "platform": "0xfixtureplatform" },
+                  "depegThreshold": "0.995",
+                  "depositAsset": "usdc",
+                },
+              "name": "Fixture Balanced Perps",
+            }
+    responses:
+      "200":
+        description: The mutation result or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    additionalProperties: false,
+                    required: [ok, data],
+                    properties:
+                      {
+                        ok: { const: true },
+                        data:
+                          {
+                            oneOf:
+                              [
+                                { $ref: ../components/vaults.yaml#/VaultDetail },
+                                {
+                                  type: array,
+                                  items:
+                                    {
+                                      type: object,
+                                      additionalProperties: false,
+                                      required: [field, code, limit],
+                                      properties:
+                                        {
+                                          field: { type: string },
+                                          code: { type: string },
+                                          limit: { type: [string, "null"] },
+                                        },
+                                    },
+                                },
+                              ],
+                          },
+                      },
+                  }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                "ok": true,
+                "data":
+                  {
+                    "id": "01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80",
+                    "name": "Fixture Balanced Perps",
+                    "managerHandle": "fixture_manager_1",
+                    "kind": "option1",
+                    "cls": "user",
+                    "shelf": "balanced",
+                    "venue": "hyperliquid",
+                    "status": "trading",
+                    "tradingState": "active",
+                    "nav": "125000.5",
+                    "navAt": "2026-11-07T09:30:00.000Z",
+                    "index": "1.0842",
+                    "returnSinceStart": "0.0842",
+                    "return30d": "0.0213",
+                    "maxDrawdown": "0.0615",
+                    "sharpe90d": "1.37",
+                    "capacityCap": "500000",
+                    "capacityUsed": "125000.5",
+                    "managerStakeShare": "0.12",
+                    "lpCount": 14,
+                    "historyDays": 142,
+                    "verified": true,
+                    "terms":
+                      {
+                        "mandateSha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                        "mandate":
+                          {
+                            "schema": "mandate/v1",
+                            "kind": "option1",
+                            "cls": "user",
+                            "venue": "hyperliquid",
+                            "instruments": ["BTC-PERP", "ETH-PERP"],
+                            "maxLeverage": 5,
+                            "maxPositionNotional": "100000",
+                            "thinMarketCap": "0.02",
+                            "drawdownStop": "0.2",
+                            "managerStakeMin": "0.1",
+                            "performanceFee": "0.2",
+                            "platformShareOfPerformanceFee": "0.25",
+                            "managementFee": "0",
+                            "ourFeeCap": "0.0003",
+                            "capacityCap": "500000",
+                            "cashBuffer": "0.05",
+                            "redemptionWindow": "daily",
+                            "lockupMs": 604800000,
+                            "minDeposit": "100",
+                            "smallestOrderFraction": "0.001",
+                            "noticePeriodMs": 1209600000,
+                            "declaredActivity": { "maxQuietMs": 259200000, "windDownAfterMs": 1209600000 },
+                            "tradingPath": "gateway",
+                            "privacy": { "kind": "positions_delayed", "delayMs": 3600000 },
+                            "shelf": "balanced",
+                            "feeAddresses": { "manager": "0xfixturemanager", "platform": "0xfixtureplatform" },
+                            "depegThreshold": "0.995",
+                            "depositAsset": "usdc",
+                          },
+                        "redemption":
+                          { "instantUpTo": "0.25", "window": "daily", "cutoffUtc": "00:00", "lockupHours": 168 },
+                        "stops":
+                          {
+                            "drawdownStop": "0.2",
+                            "cashBuffer": "0.05",
+                            "noticeDays": 14,
+                            "inactiveNotifyDays": 3,
+                            "inactiveWindDownDays": 14,
+                            "capacityCap": "500000",
+                            "minDeposit": "100",
+                            "thinMarketCap": "0.02",
+                            "depegThreshold": "0.995",
+                          },
+                        "fees":
+                          {
+                            "performanceFee": "0.2",
+                            "platformShare": "0.25",
+                            "managementFee": "0",
+                            "ourTradeFeeCap": "0.0003",
+                            "highWaterMark": "per_lp_by_lots",
+                            "venueWithdrawFee": null,
+                          },
+                        "enforcement":
+                          { "tradingPath": "gateway", "afterTradeDetectionMs": null, "guardianReduceOnlyIsOurs": true },
+                      },
+                    "matrixRow":
+                      {
+                        "implementation": "hl_native_multisig",
+                        "cells":
+                          [
+                            {
+                              "venue": "hyperliquid",
+                              "kind": "option1",
+                              "capability": "guardian_close",
+                              "verdict": "yes_pending",
+                              "evidenceKind": null,
+                              "pendingOn": "VP-HL-01",
+                              "note": "Fixture note.",
+                            },
+                          ],
+                      },
+                    "whoCanDoWhat":
+                      [
+                        {
+                          "party": "trader",
+                          "can": "Trade within the mandate through the gateway.",
+                          "cannot": "Move funds out of the vault account.",
+                        },
+                      ],
+                    "ruleSeat":
+                      {
+                        "imageSha384": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                        "policySha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                      },
+                    "drawdownNow": "0.012",
+                    "breachCount": 0,
+                    "guardianActionCount": 0,
+                    "noticeEndsAt": null,
+                    "closeReason": null,
+                    "passportMark": null,
+                  },
+              }
+
+vault:
+  parameters:
+    - &vaultId
+      name: id
+      in: path
+      required: true
+      description: The vault's id, a UUIDv7. Another form is refused with `invalid_id`.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getVault
+    tags: [Vaults]
+    summary: Read one vault with its terms.
+    description: >-
+      The summary, every term and risk parameter, the venue's matrix row, who can do what in this vault, the rule seat's
+      hashes and the vault's state. Nothing about a term is hidden (LPR-01).
+    x-owner: "12"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, not_found, invalid_id]
+    security: []
+    responses:
+      "200":
+        description: The vault, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/vaults.yaml#/VaultDetail
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                name: Fixture Balanced Perps
+                managerHandle: fixture_manager_1
+                kind: option1
+                cls: user
+                shelf: balanced
+                venue: hyperliquid
+                status: trading
+                tradingState: active
+                nav: "125000.5"
+                navAt: "2026-11-07T09:30:00.000Z"
+                index: "1.0842"
+                returnSinceStart: "0.0842"
+                return30d: "0.0213"
+                maxDrawdown: "0.0615"
+                sharpe90d: "1.37"
+                capacityCap: "500000"
+                capacityUsed: "125000.5"
+                managerStakeShare: "0.12"
+                lpCount: 14
+                historyDays: 142
+                verified: true
+                terms:
+                  mandateSha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+                  mandate:
+                    schema: mandate/v1
+                    kind: option1
+                    cls: user
+                    venue: hyperliquid
+                    instruments: [BTC-PERP, ETH-PERP]
+                    maxLeverage: 5
+                    maxPositionNotional: "100000"
+                    thinMarketCap: "0.02"
+                    drawdownStop: "0.2"
+                    managerStakeMin: "0.1"
+                    performanceFee: "0.2"
+                    platformShareOfPerformanceFee: "0.25"
+                    managementFee: "0"
+                    ourFeeCap: "0.0003"
+                    capacityCap: "500000"
+                    cashBuffer: "0.05"
+                    redemptionWindow: daily
+                    lockupMs: 604800000
+                    minDeposit: "100"
+                    smallestOrderFraction: "0.001"
+                    noticePeriodMs: 1209600000
+                    declaredActivity:
+                      maxQuietMs: 259200000
+                      windDownAfterMs: 1209600000
+                    tradingPath: gateway
+                    privacy:
+                      kind: positions_delayed
+                      delayMs: 3600000
+                    shelf: balanced
+                    feeAddresses:
+                      manager: "0xfixturemanager"
+                      platform: "0xfixtureplatform"
+                    depegThreshold: "0.995"
+                    depositAsset: usdc
+                  redemption:
+                    instantUpTo: "0.25"
+                    window: daily
+                    cutoffUtc: "00:00"
+                    lockupHours: 168
+                  stops:
+                    drawdownStop: "0.2"
+                    cashBuffer: "0.05"
+                    noticeDays: 14
+                    inactiveNotifyDays: 3
+                    inactiveWindDownDays: 14
+                    capacityCap: "500000"
+                    minDeposit: "100"
+                    thinMarketCap: "0.02"
+                    depegThreshold: "0.995"
+                  fees:
+                    performanceFee: "0.2"
+                    platformShare: "0.25"
+                    managementFee: "0"
+                    ourTradeFeeCap: "0.0003"
+                    highWaterMark: per_lp_by_lots
+                    venueWithdrawFee: null
+                  enforcement:
+                    tradingPath: gateway
+                    afterTradeDetectionMs: null
+                    guardianReduceOnlyIsOurs: true
+                matrixRow:
+                  implementation: hl_native_multisig
+                  cells:
+                    - &matrixCell
+                      venue: hyperliquid
+                      kind: option1
+                      capability: guardian_close
+                      verdict: yes_pending
+                      evidenceKind: null
+                      pendingOn: VP-HL-01
+                      note: Fixture note.
+                whoCanDoWhat:
+                  - party: trader
+                    can: Trade within the mandate through the gateway.
+                    cannot: Move funds out of the vault account.
+                ruleSeat:
+                  imageSha384: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                  policySha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+                drawdownNow: "0.012"
+                breachCount: 0
+                guardianActionCount: 0
+                noticeEndsAt: null
+                closeReason: null
+                passportMark: null
+
+vault-index:
+  parameters:
+    - *vaultId
+  get:
+    operationId: getVaultIndex
+    tags: [Vaults]
+    summary: Read a vault's index chart.
+    description: >-
+      Index points from `from` to `to` at the given grain. The grain `minute` is allowed only for ranges of two days or
+      less. A point with `stale: true` is drawn as a gap. The index is not streamed; the page polls every 60 seconds.
+    x-owner: "12"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, not_found, invalid_request]
+    security: []
+    parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: to
+        in: query
+        required: true
+        schema:
+          $ref: ../components/primitives.yaml#/Instant
+      - name: grain
+        in: query
+        required: true
+        schema:
+          $ref: ../components/vaults.yaml#/VaultGrain
+    responses:
+      "200":
+        description: The points, oldest first, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/vaults.yaml#/VaultIndex
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                points:
+                  - at: "2026-11-06T00:00:00.000Z"
+                    index: "1.0801"
+                    drawdown: "0.004"
+                    stale: false
+                  - at: "2026-11-07T00:00:00.000Z"
+                    index: "1.0842"
+                    drawdown: "0"
+                    stale: false
+
+vault-log:
+  parameters:
+    - *vaultId
+  get:
+    operationId: listVaultLog
+    tags: [Vaults]
+    summary: List a vault's public log, newest first.
+    description: Public events, mandate breaches and guardian actions.
+    x-owner: "12"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, not_found, cursor_invalid]
+    security: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of log entries, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data, nextCursor]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/vaults.yaml#/VaultLogEntry
+                    nextCursor:
+                      type: [string, "null"]
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - kind: guardian
+                  at: "2026-11-05T14:00:00.000Z"
+                  action: pause_openings
+                  trigger: drawdown_stop
+                  outcome: done
+                - kind: breach
+                  at: "2026-11-04T10:12:00.000Z"
+                  breach: leverage_above_max
+                  instrument: BTC-PERP
+                  value: "6"
+                  limit: "5"
+                - kind: event
+                  at: "2026-11-01T00:00:00.000Z"
+                  event: vault.opened
+                  data:
+                    lpCount: 0
+              nextCursor: null
+
+vault-exposure:
+  parameters:
+    - *vaultId
+  get:
+    operationId: getVaultExposure
+    tags: [Vaults]
+    summary: Read a vault's positions by market.
+    description: >-
+      Positions older than the vault's privacy delay. A vault that shows metrics only refuses with `positions_private`.
+    x-owner: "12"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, not_found, positions_private]
+    security: []
+    responses:
+      "200":
+        description: The exposure, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/vaults.yaml#/VaultExposure
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                asOf: "2026-11-07T08:30:00.000Z"
+                byMarket:
+                  - instrument: BTC-PERP
+                    side: long
+                    notional: "62000"
+                    shareOfNav: "0.496"
+
+vault-records:
+  parameters:
+    - *vaultId
+  get:
+    operationId: listVaultRecords
+    tags: [Vaults]
+    summary: List the daily record hashes of a vault.
+    description: >-
+      One hash per vault account and day from `from_day` to `to_day`, so a depositor can check a record against the
+      published hash (NAV-03). `vaultAccountRef` is an opaque ordinal of the vault.
+    x-owner: "12"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, not_found, invalid_request]
+    security: []
+    parameters:
+      - name: from_day
+        in: query
+        required: true
+        schema:
+          $ref: ../components/vaults.yaml#/VaultDay
+      - name: to_day
+        in: query
+        required: true
+        schema:
+          $ref: ../components/vaults.yaml#/VaultDay
+    responses:
+      "200":
+        description: The record hashes, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/vaults.yaml#/VaultRecord
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - vaultAccountRef: "1"
+                  day: "2026-11-06"
+                  sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+
+vault-matrix:
+  get:
+    operationId: getVaultMatrix
+    tags: [Vaults]
+    summary: Read the vault capability matrix.
+    description: >-
+      Every venue and kind with the verdict and evidence of each capability. A `yes_pending` cell is "to be proven" and
+      names its probe or question.
+    x-owner: "12"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable]
+    security: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: kind
+        in: query
+        required: false
+        schema:
+          $ref: ../components/vaults.yaml#/VaultKind
+    responses:
+      "200":
+        description: The matrix, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/vaults.yaml#/VaultMatrix
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                cells:
+                  - *matrixCell
+                rows:
+                  - venue: hyperliquid
+                    kind: option1
+                    implementation: hl_native_multisig
+                    readiness: one_time_setup
+                    offered: false
+
+my-vaults:
+  get:
+    operationId: getMyVaults
+    tags: [Vaults]
+    summary: Read the caller's vault seats, managed vaults and seat requests.
+    description: >-
+      The caller's accounts with their lots, open redemptions and statements; the vaults the caller manages; and the
+      requests waiting for the caller's signature (read only in v1).
+    x-owner: "12"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-flag: screens.vaults
+    x-refusals: [feature_unavailable, unauthenticated]
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The caller's vault state, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/vaults.yaml#/MyVaults
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                accounts:
+                  - vaultAccountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d81
+                    vaultId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                    seatRole: lp
+                    status: active
+                    nav: "1050.25"
+                    navAt: "2026-11-07T09:30:00.000Z"
+                    perfAccrued: "8.5"
+                    lots:
+                      - lotId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d82
+                        amount: "1000"
+                        units: "960.5"
+                        mark: "1.0412"
+                        creditedAt: "2026-10-20T00:00:00.000Z"
+                        lockedUntil: "2026-10-27T00:00:00.000Z"
+                    redemptionAddress: "0xfixtureaddress"
+                    openRedemptions:
+                      - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d83
+                        status: queued
+                        path: queued
+                        net: "250"
+                        deadlineAt: "2026-11-09T00:00:00.000Z"
+                    statements:
+                      - month: "2026-10"
+                        sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+                managed: []
+                requests:
+                  - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d84
+                    vaultAccountId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d81
+                    action: revoke_trade_key
+                    reason: The mandate was breached twice in a day.
+                    status: pending_lp
+                    expiresAt: "2026-11-14T00:00:00.000Z"

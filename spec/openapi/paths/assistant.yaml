@@ -1,0 +1,49 @@
+# Feedback on an assistant answer (10 §17.4).
+feedback:
+  post:
+    operationId: submitFeedback
+    summary: Rate an assistant answer.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - state_conflict
+    x-service: true
+    security:
+      - session: []
+      - service: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/assistant.yaml#/FeedbackRequest
+          example:
+            turnId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+            up: false
+            reason: The funding number was a day old.
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: {}

@@ -1,0 +1,117 @@
+# Notes beside a screen (10 §8.1, §17.4).
+notes:
+  get:
+    operationId: listNotes
+    summary: List the notes for a screen.
+    description: At most two notes.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-flag: assistant.notes
+    security:
+      - session: []
+    parameters:
+      - name: screen
+        in: query
+        required: true
+        description: The screen the notes are for.
+        schema:
+          $ref: ../components/assistant.yaml#/AssistantScreenId
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/assistant.yaml#/NoteView
+                      maxItems: 2
+                - &a1
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  type: key_expiring
+                  screen: connections
+                  anchor:
+                    kind: connection
+                    id: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d81
+                  text: Your Hyperliquid key expires in 6 days, on 13 Nov.
+                  action:
+                    label: Renew
+                    kind: link
+                    href: /connections
+                  dismissible: true
+dismiss:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: dismissNote
+    summary: Dismiss a note.
+    tags:
+      - Assistant
+    x-owner: "10"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    x-flag: assistant.notes
+    security:
+      - session: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: []
+            properties:
+              acted:
+                type: boolean
+                description: The user followed the note's action.
+          example:
+            acted: true
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: object
+                      additionalProperties: false
+                - *a1
+            example:
+              ok: true
+              data: {}

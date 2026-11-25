@@ -1,0 +1,275 @@
+# Venues, instruments, venue budgets and attestation (03 §7.3, §8).
+InstrumentId:
+  type: string
+  description: An instrument id, `<venue>:<venueSymbol>` (01 §5.9).
+  minLength: 3
+  maxLength: 160
+  pattern: ^[a-z0-9-]+:.+$
+  examples:
+    - hyperliquid:BTC
+VenueUnit:
+  type: object
+  description: One gate unit of a venue. A unit that is not open for this caller shows its state; it is never hidden.
+  required:
+    - mode
+    - keyPlace
+    - cls
+    - state
+    - stage
+  properties:
+    mode:
+      $ref: ./primitives.yaml#/Mode
+    keyPlace:
+      $ref: ./primitives.yaml#/KeyPlace
+    cls: &a1
+      $ref: ./primitives.yaml#/InstrumentClass
+    state:
+      $ref: ./primitives.yaml#/VenueState
+    stage:
+      $ref: ./primitives.yaml#/GateStage
+VenueInfo:
+  type: object
+  description: A venue, its gate units, fee model, measured latency and reachability.
+  required:
+    - id
+    - name
+    - kind
+    - region
+    - classes
+    - units
+    - fee
+    - latency
+    - status
+  properties:
+    id: &a5
+      $ref: ./primitives.yaml#/VenueId
+    name: &a3
+      type: string
+    kind:
+      $ref: ./primitives.yaml#/VenueKind
+    region:
+      $ref: ./primitives.yaml#/Region
+    classes:
+      type: array
+      items: *a1
+    units:
+      type: array
+      items:
+        $ref: ./venues.yaml#/VenueUnit
+    fee:
+      type: object
+      required:
+        - kind
+        - unit
+        - step
+      properties:
+        kind:
+          description: A FeeKind.
+          type: string
+        unit:
+          description: A FeeUnit.
+          type: string
+        step:
+          description: The smallest rate step (01 §5.9).
+          $ref: ./primitives.yaml#/DecStr
+    latency:
+      oneOf:
+        - type: object
+          required:
+            - p50Ms
+            - p99Ms
+            - from
+            - measuredAt
+          properties:
+            p50Ms: &a2
+              type: integer
+            p99Ms: *a2
+            from: *a3
+            measuredAt: &a4
+              $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    status:
+      type: object
+      required:
+        - reachable
+        - lastFrameAgeMs
+        - checkedAt
+      properties:
+        reachable:
+          type: boolean
+        lastFrameAgeMs: &a7
+          type:
+            - integer
+            - "null"
+        checkedAt: *a4
+InstrumentInfo:
+  type: object
+  description: A tradable market of a venue.
+  required:
+    - instrumentId
+    - venue
+    - venueSymbol
+    - cls
+    - underlying
+    - shareRate
+    - base
+    - quote
+    - feeAsset
+    - chargedSide
+    - tick
+    - lot
+    - minSize
+    - minNotional
+    - maxLeverage
+    - status
+    - venueExtra
+  properties:
+    instrumentId:
+      $ref: ./venues.yaml#/InstrumentId
+    venue: *a5
+    venueSymbol: *a3
+    cls: *a1
+    underlying:
+      type: string
+      description: The kind of the underlying (04 §6a); `unknown` where the venue's list and the config do not say.
+      enum:
+        - crypto
+        - equity
+        - etf
+        - index
+        - commodity
+        - fx
+        - bond
+        - pre_ipo
+        - unknown
+    shareRate:
+      description: Venue token units per share, set only on `stock_token` (token amount = shares x shareRate, token price = share price / shareRate); display and checks only, since orders use the venue's own exact rate (04 §6a).
+      oneOf:
+        - $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    base: *a3
+    quote: *a3
+    feeAsset: *a3
+    chargedSide:
+      type: string
+      enum:
+        - both
+        - sell_only
+        - none
+    tick: &a6
+      $ref: ./primitives.yaml#/DecStr
+    lot: *a6
+    minSize:
+      oneOf:
+        - *a6
+        - type: "null"
+    minNotional:
+      oneOf:
+        - *a6
+        - type: "null"
+    maxLeverage: *a7
+    status:
+      type: string
+      enum:
+        - trading
+        - reduce_only
+        - halted
+        - delisted
+    venueExtra:
+      type: object
+      additionalProperties:
+        type:
+          - string
+          - number
+          - boolean
+          - "null"
+BudgetRule:
+  type: object
+  required:
+    - scope
+    - unit
+    - limit
+    - used
+    - windowMs
+    - note
+  properties:
+    scope:
+      type: string
+      enum:
+        - address
+        - key
+        - account
+        - wallet
+    unit: *a3
+    limit:
+      type: number
+    used:
+      type:
+        - number
+        - "null"
+    windowMs: *a7
+    note: *a3
+VenueBudget:
+  type: object
+  description: The venue's own per-address or per-wallet limits as they apply to the account.
+  required:
+    - venue
+    - accountId
+    - rules
+    - asOf
+  properties:
+    venue: *a5
+    accountId:
+      $ref: ./primitives.yaml#/Uuid
+    rules:
+      type: array
+      items:
+        $ref: ./venues.yaml#/BudgetRule
+    asOf: *a4
+AttestationInfo:
+  type: object
+  required:
+    - venue
+    - imageSha384
+    - sourceCommit
+    - policiesSha256
+    - publishedAt
+    - document
+  properties:
+    venue:
+      oneOf:
+        - *a5
+        - type: "null"
+    imageSha384:
+      description: The live enclave image hash (PCR0).
+      type: string
+    sourceCommit: *a3
+    policiesSha256: *a3
+    publishedAt: *a4
+    document:
+      description: Base64, the latest attestation document the enclave produced.
+      type:
+        - string
+        - "null"
+AttestationChallengeRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - venue
+    - nonce
+  properties:
+    venue: *a5
+    nonce:
+      description: 32 random bytes, base64url without padding, made by the browser.
+      type: string
+      pattern: ^[A-Za-z0-9_-]{43}$
+AttestationChallenge:
+  type: object
+  required:
+    - document
+    - imageSha384
+  properties:
+    document:
+      description: Base64 attestation document, fresh for the nonce.
+      type: string
+    imageSha384: *a3

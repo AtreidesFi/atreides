@@ -1,0 +1,161 @@
+# Venues (03 §7.3; owner 03). States come from 02 `venue_states`, latency from 04 `venue_latency_probes`.
+venues:
+  get:
+    operationId: listVenues
+    summary: List every venue with its gate units, fee model, latency and reachability.
+    tags:
+      - Venues
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    security: &a1 []
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/venues.yaml#/VenueInfo
+                - &a2
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - &a3
+                  id: hyperliquid
+                  name: Hyperliquid
+                  kind: dex
+                  region: tyo
+                  classes:
+                    - perp
+                    - spot
+                  units:
+                    - mode: gateway
+                      keyPlace: signer
+                      cls: perp
+                      state: open
+                      stage: open
+                  fee:
+                    kind: builder_fee
+                    unit: tenth_bp
+                    step: "0.00001"
+                  latency:
+                    p50Ms: 12
+                    p99Ms: 40
+                    from: tyo
+                    measuredAt: 2026-11-07T09:30:00.000Z
+                  status:
+                    reachable: true
+                    lastFrameAgeMs: 35
+                    checkedAt: 2026-11-07T09:30:00.000Z
+venue:
+  parameters:
+    - &a4
+      name: venue
+      in: path
+      required: true
+      description: A venue id.
+      schema:
+        $ref: ../components/primitives.yaml#/VenueId
+  get:
+    operationId: getVenue
+    summary: Read one venue.
+    tags:
+      - Venues
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    security: *a1
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/venues.yaml#/VenueInfo
+                - *a2
+            example:
+              ok: true
+              data: *a3
+venueBudget:
+  parameters:
+    - *a4
+  get:
+    operationId: getVenueBudget
+    summary: Read the venue's own per-address or per-wallet limits as they apply to an account.
+    tags:
+      - Venues
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - account_not_bound
+      - feature_unavailable
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: accountId
+        in: query
+        required: true
+        description: The venue account.
+        schema:
+          $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/venues.yaml#/VenueBudget
+                - *a2
+            example:
+              ok: true
+              data:
+                venue: hyperliquid
+                accountId: 01936f2e-7c3b-7c2f-9e5a-3b0d6f7c8e91
+                rules:
+                  - scope: address
+                    unit: requests
+                    limit: 1200
+                    used: 40
+                    windowMs: 60000
+                    note: Weight per minute for the address.
+                asOf: 2026-11-07T09:30:00.000Z

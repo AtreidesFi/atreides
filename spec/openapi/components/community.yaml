@@ -1,0 +1,315 @@
+# Community profile, referral and invite shapes (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+ProfileKind:
+  type: string
+  enum:
+    - community
+    - personal
+ProfileSummary:
+  type: object
+  required:
+    - id
+    - kind
+    - slug
+    - displayName
+    - status
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    kind:
+      $ref: "#/ProfileKind"
+    slug:
+      type: string
+    displayName:
+      type: string
+    status:
+      type: string
+      enum:
+        - active
+        - suspended
+        - closed
+AccruedShare:
+  type: array
+  items:
+    type: object
+    required:
+      - state
+      - amount
+    properties:
+      state:
+        type: string
+        enum:
+          - pending
+          - claimable
+          - claimed
+          - paid
+          - under_review
+      amount:
+        $ref: ./primitives.yaml#/MoneyJson
+ProfileDetail:
+  allOf:
+    - $ref: "#/ProfileSummary"
+    - type: object
+      required:
+        - memberCount
+        - activeMembers30d
+        - feePayingVolume30dUsd
+        - feePayingVolumeLifetimeUsd
+        - accruedShare
+        - inviteLinks
+      properties:
+        memberCount:
+          type: integer
+          minimum: 0
+        activeMembers30d:
+          type: integer
+          minimum: 0
+        feePayingVolume30dUsd:
+          $ref: ./primitives.yaml#/DecStr
+        feePayingVolumeLifetimeUsd:
+          $ref: ./primitives.yaml#/DecStr
+        accruedShare:
+          $ref: "#/AccruedShare"
+        inviteLinks:
+          type: array
+          items:
+            type: object
+            required:
+              - code
+              - usesLeft
+              - expiresAt
+            properties:
+              code:
+                type: string
+              usesLeft:
+                type:
+                  - integer
+                  - "null"
+                minimum: 0
+              expiresAt:
+                oneOf:
+                  - $ref: ./primitives.yaml#/Instant
+                  - type: "null"
+UpdateProfileRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - displayName
+  properties:
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 100
+ProfileMember:
+  type: object
+  required:
+    - handle
+    - joinedAt
+    - venuesActive30d
+    - feePayingVolume30dUsd
+    - feePayingVolumeLifetimeUsd
+  properties:
+    handle:
+      type: string
+    joinedAt:
+      $ref: ./primitives.yaml#/Instant
+    venuesActive30d:
+      type: integer
+      minimum: 0
+    feePayingVolume30dUsd:
+      $ref: ./primitives.yaml#/DecStr
+    feePayingVolumeLifetimeUsd:
+      $ref: ./primitives.yaml#/DecStr
+ReferralCode:
+  type: object
+  required:
+    - id
+    - code
+    - label
+    - status
+    - signUps
+    - link
+    - createdAt
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    code:
+      type: string
+    label:
+      type:
+        - string
+        - "null"
+    status:
+      type: string
+      enum:
+        - active
+        - disabled
+    signUps:
+      type: integer
+      minimum: 0
+    link:
+      type: string
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+CreateCodeRequest:
+  type: object
+  additionalProperties: false
+  required: []
+  properties:
+    code:
+      type: string
+      minLength: 1
+      maxLength: 64
+    label:
+      type: string
+      maxLength: 80
+OwnerChange:
+  type: object
+  required:
+    - id
+    - profileId
+    - toAddress
+    - status
+    - effectiveAt
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    profileId:
+      $ref: ./primitives.yaml#/Uuid
+    toAddress:
+      type: string
+    status:
+      type: string
+      enum:
+        - requested
+        - confirmed
+        - effective
+        - cancelled
+    effectiveAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+RequestOwnerChangeRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - toAddress
+    - message
+    - signature
+  properties:
+    toAddress:
+      type: string
+      pattern: ^0x[0-9a-fA-F]{40}$
+      description: The EVM address of the new owner.
+    message:
+      type: string
+      minLength: 1
+      maxLength: 2000
+    signature:
+      $ref: ./primitives.yaml#/Hex
+ConfirmOwnerChangeRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - message
+    - signature
+  properties:
+    message:
+      type: string
+      minLength: 1
+      maxLength: 2000
+    signature:
+      $ref: ./primitives.yaml#/Hex
+ResolvedReferralCode:
+  type: object
+  required:
+    - code
+    - profileDisplayName
+    - kind
+  properties:
+    code:
+      type: string
+    profileDisplayName:
+      type: string
+    kind:
+      $ref: "#/ProfileKind"
+MyReferrals:
+  type: object
+  required:
+    - referredBy
+    - lateClaimUntil
+    - personalProfile
+  properties:
+    referredBy:
+      oneOf:
+        - type: object
+          required:
+            - profileDisplayName
+            - since
+            - source
+          properties:
+            profileDisplayName:
+              type: string
+            since:
+              $ref: ./primitives.yaml#/Instant
+            source:
+              type: string
+        - type: "null"
+    lateClaimUntil:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    personalProfile:
+      oneOf:
+        - type: object
+          required:
+            - id
+            - codes
+            - signUps
+            - accruedShare
+          properties:
+            id:
+              $ref: ./primitives.yaml#/Uuid
+            codes:
+              type: array
+              items:
+                $ref: "#/ReferralCode"
+            signUps:
+              type: integer
+              minimum: 0
+            accruedShare:
+              $ref: "#/AccruedShare"
+        - type: "null"
+ClaimAttributionRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - code
+  properties:
+    code:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: A code or a pasted link, at most 200 characters.
+CheckInviteRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - code
+  properties:
+    code:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: A code or a pasted link, at most 200 characters.
+InviteCheck:
+  type: object
+  required:
+    - valid
+    - profileDisplayName
+  properties:
+    valid:
+      type: boolean
+    profileDisplayName:
+      type:
+        - string
+        - "null"

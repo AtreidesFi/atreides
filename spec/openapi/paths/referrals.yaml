@@ -1,0 +1,278 @@
+# Referral operations (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+resolve:
+  parameters:
+    - name: code
+      in: path
+      required: true
+      description: The referral code.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+  get:
+    operationId: resolveReferralCode
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    summary: Resolve a referral code.
+    description: Who a code belongs to. A disabled code is not found.
+    tags:
+      - Community
+    security: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/ResolvedReferralCode
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                code: northwind
+                profileDisplayName: Northwind Traders
+                kind: community
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Code was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a
+me:
+  get:
+    operationId: getMyReferrals
+    x-owner: "11"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    summary: Read my referrals.
+    description: Who referred the signed-in user, the late-claim window, and their own codes and sign-ups.
+    tags:
+      - Community
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/MyReferrals
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                referredBy:
+                  profileDisplayName: Northwind Traders
+                  since: 2026-11-02T09:30:00.000Z
+                  source: link
+                lateClaimUntil: null
+                personalProfile:
+                  id: 0193a021-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  codes:
+                    - id: 0193a030-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                      code: northwind
+                      label: Twitter
+                      status: active
+                      signUps: 12
+                      link: https://example.com/r/northwind
+                      createdAt: 2026-11-01T09:30:00.000Z
+                  signUps: 12
+                  accruedShare:
+                    - state: pending
+                      amount:
+                        amount: "42.10"
+                        asset: usdc
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+myCodes:
+  post:
+    operationId: createMyReferralCode
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - wallet_required
+      - referral_code_taken
+      - referral_code_invalid
+      - profile_code_limit
+      - idempotency_conflict
+    summary: Create my referral code.
+    description: Makes a code on the signed-in user's personal profile; needs a linked EVM wallet.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/community.yaml#/CreateCodeRequest
+          example:
+            code: northwind
+            label: Twitter
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/ReferralCode
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a030-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                code: northwind
+                label: Twitter
+                status: active
+                signUps: 12
+                link: https://example.com/r/northwind
+                createdAt: 2026-11-01T09:30:00.000Z
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: wallet_required
+              message: Link an EVM wallet first; referral income is paid to it.
+              retryable: false
+              requestId: req_01936f2e7c3a
+attribution:
+  post:
+    operationId: claimMyAttribution
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - referral_late_closed
+      - referral_already_attributed
+      - referral_code_invalid
+      - referral_self
+      - idempotency_conflict
+    summary: Claim a referrer late.
+    description: Adds a referral code after sign-up, within 72 hours and before the first trade through us.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/community.yaml#/ClaimAttributionRequest
+          example:
+            code: northwind
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/MyReferrals
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                referredBy:
+                  profileDisplayName: Northwind Traders
+                  since: 2026-11-02T09:30:00.000Z
+                  source: link
+                lateClaimUntil: null
+                personalProfile:
+                  id: 0193a021-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  codes:
+                    - id: 0193a030-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                      code: northwind
+                      label: Twitter
+                      status: active
+                      signUps: 12
+                      link: https://example.com/r/northwind
+                      createdAt: 2026-11-01T09:30:00.000Z
+                  signUps: 12
+                  accruedShare:
+                    - state: pending
+                      amount:
+                        amount: "42.10"
+                        asset: usdc
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: referral_late_closed
+              message: A code can be added only within 72 hours of sign-up and before your first trade through us.
+              retryable: false
+              requestId: req_01936f2e7c3a

@@ -1,0 +1,118 @@
+# Limits (03 §7.4; 02 `limits`). A set is an immutable version; saving writes the next one.
+LimitScope:
+  type: string
+  enum:
+    - platform
+    - user
+    - account
+    - key
+LimitSet:
+  type: object
+  description: The limits of one subject at one version. A null limit is unlimited.
+  required:
+    - limitId
+    - scope
+    - subjectId
+    - version
+    - venues
+    - classes
+    - instruments
+    - maxOrderNotional
+    - dailyNotional
+    - maxPositionNotional
+    - notionalAsset
+    - maxLeverage
+    - maxOpenOrders
+    - reason
+    - createdBy
+    - createdAt
+  properties:
+    limitId: &a1
+      $ref: ./primitives.yaml#/Uuid
+    scope:
+      $ref: ./limits.yaml#/LimitScope
+    subjectId:
+      description: The account or key id; null for platform and user.
+      oneOf:
+        - *a1
+        - type: "null"
+    version:
+      type: integer
+      minimum: 1
+    venues: &a4
+      description: "Allowed venues; null: any."
+      oneOf:
+        - type: array
+          items:
+            $ref: ./primitives.yaml#/VenueId
+        - type: "null"
+    classes: &a5
+      description: "Allowed instrument classes; null: any."
+      oneOf:
+        - type: array
+          items:
+            $ref: ./primitives.yaml#/InstrumentClass
+        - type: "null"
+    instruments: &a6
+      description: "Allowed instrument ids; null: any."
+      oneOf:
+        - type: array
+          items:
+            $ref: ./venues.yaml#/InstrumentId
+        - type: "null"
+    maxOrderNotional: &a7
+      oneOf:
+        - &a2
+          $ref: ./primitives.yaml#/DecStr
+        - type: "null"
+    dailyNotional: &a8
+      oneOf:
+        - *a2
+        - type: "null"
+    maxPositionNotional: &a9
+      oneOf:
+        - *a2
+        - type: "null"
+    notionalAsset: &a10
+      description: Required when a notional limit is set.
+      oneOf:
+        - $ref: ./primitives.yaml#/AssetId
+        - type: "null"
+    maxLeverage: &a3
+      type:
+        - integer
+        - "null"
+    maxOpenOrders: *a3
+    reason: &a11
+      type:
+        - string
+        - "null"
+    createdBy:
+      type: string
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+LimitUpdate:
+  type: object
+  additionalProperties: false
+  description: A new version. A null field clears that limit; a field left out is cleared too (a version is a full set).
+  required:
+    - scope
+  properties:
+    scope:
+      type: string
+      enum:
+        - user
+        - account
+    accountId:
+      description: Required for scope account.
+      $ref: ./primitives.yaml#/Uuid
+    venues: *a4
+    classes: *a5
+    instruments: *a6
+    maxOrderNotional: *a7
+    dailyNotional: *a8
+    maxPositionNotional: *a9
+    notionalAsset: *a10
+    maxLeverage: *a3
+    maxOpenOrders: *a3
+    reason: *a11

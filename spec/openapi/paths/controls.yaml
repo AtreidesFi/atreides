@@ -1,0 +1,238 @@
+# Freeze, unfreeze and panic (03 §7.5a, API-066, API-067). Owner 03; the gateway does the cancelling (05 §10b.7).
+freeze:
+  parameters:
+    - name: keyId
+      in: path
+      required: true
+      description: The key.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: freezeApiKey
+    summary: Freeze an API key.
+    description: "Writes a limits version with `mode: reduce_only` for the key and cancels its resting opening orders. Reduce-only orders stay, so the key can still close. A session may freeze any key of the user; a trade key may freeze itself and no other. Repeating it returns the frozen key."
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - forbidden
+      - account_not_bound
+      - unavailable
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: The key, now frozen, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/keys.yaml#/ApiKey
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b
+                keyText: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKD
+                kind: ed25519
+                name: market maker
+                scopes:
+                  - read
+                  - trade
+                accounts:
+                  - 01936f2e-7c42-7399-b608-bcab9a8f7e6d
+                ipAllowlist:
+                  - 203.0.113.0/24
+                state: active
+                expiresAt: 2027-11-07T09:30:00.000Z
+                rotatedTo: null
+                overlapUntil: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                lastUsedAt: null
+                grantSigner: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                limits:
+                  maxOrderNotional: null
+                  dailyNotional: null
+                  maxOpenNotional: null
+                  maxDailyLoss: null
+                  maxOpenOrders: null
+                  maxOrdersPerMin: null
+                  venues: null
+                  classes: null
+                  instruments: null
+                  mode: reduce_only
+unfreeze:
+  parameters:
+    - name: keyId
+      in: path
+      required: true
+      description: The key.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: unfreezeApiKey
+    summary: Unfreeze an API key.
+    description: "Session only, with the second factor in `X-Second-Factor`: a key can never lift its own freeze. Writes a limits version with `mode: normal`. A key the user's panic also blocks stays blocked until `POST /v1/panic/clear`."
+    tags:
+      - Keys
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - not_found
+      - second_factor_required
+      - second_factor_invalid
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/SecondFactor
+    responses:
+      "200":
+        description: The key, now unfrozen, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/keys.yaml#/ApiKey
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 01936f2e-7c40-7177-94e6-9a8f7e6d5c4b
+                keyText: live_01JC9W5V7B4X2M8Q0R3T6Y9ZKD
+                kind: ed25519
+                name: market maker
+                scopes:
+                  - read
+                  - trade
+                accounts:
+                  - 01936f2e-7c42-7399-b608-bcab9a8f7e6d
+                ipAllowlist:
+                  - 203.0.113.0/24
+                state: active
+                expiresAt: 2027-11-07T09:30:00.000Z
+                rotatedTo: null
+                overlapUntil: null
+                createdAt: 2026-11-07T09:30:00.000Z
+                lastUsedAt: null
+                grantSigner: "0x71c7656ec7ab88b098defb751b7401b5f6d8976f"
+                limits:
+                  maxOrderNotional: null
+                  dailyNotional: null
+                  maxOpenNotional: null
+                  maxDailyLoss: null
+                  maxOpenOrders: null
+                  maxOrdersPerMin: null
+                  venues: null
+                  classes: null
+                  instruments: null
+                  mode: normal
+panic:
+  post:
+    operationId: panic
+    summary: Stop everything the user has opening.
+    description: "Trade scope or session. Blocks every opening order of the user, whatever the key, the session or the ticket (`key_frozen`), then cancels the resting opening orders on every account of the user. With `cancelProtective` the reduce-only orders go too. It never closes a position and never touches the dead-man. Closes stay possible. Repeating it is harmless: it blocks again and cancels what rests."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: trade
+    x-rate-class: protect
+    x-idempotency: target
+    x-refusals:
+      - unavailable
+    security:
+      - session: []
+      - apiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/controls.yaml#/PanicRequest
+          example:
+            cancelProtective: false
+    responses:
+      "200":
+        description: What was cancelled, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/controls.yaml#/PanicResult
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                cancelledOrders: 3
+                cancelledParents: 0
+                blockedUntilClear: true
+                notCancelled: 0
+panic-clear:
+  post:
+    operationId: clearPanic
+    summary: Lift the panic block.
+    description: "Session only, with the second factor in `X-Second-Factor`. Writes a user limits version with `mode: normal`. Keys frozen on their own stay frozen."
+    tags:
+      - Orders
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: target
+    x-refusals:
+      - second_factor_required
+      - second_factor_invalid
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/SecondFactor
+    responses:
+      "200":
+        description: The block is lifted, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/controls.yaml#/PanicCleared
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                cleared: true

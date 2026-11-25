@@ -1,0 +1,209 @@
+quote:
+  post:
+    operationId: quoteRoute
+    summary: Quote a route across connected accounts.
+    description: Quotes the all-in price after all fees and the net saving against the best single venue.
+    tags: [Orders]
+    x-owner: "05"
+    x-scope: read
+    x-rate-class: heavy
+    x-idempotency: none
+    x-flag: trading.routing
+    x-refusals:
+      [
+        route_no_candidate,
+        insufficient_depth,
+        not_found,
+        account_not_bound,
+        route_not_live,
+        feature_unavailable,
+        routing_unavailable_testnet,
+      ]
+    x-mcp-tool:
+      name: route_quote
+      description: Compare the all-in cost of routing an order across the caller's connected venues.
+    security: [{ session: [] }, { apiKey: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/route.yaml#/RouteQuoteRequest
+          example: { routeId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11 }
+    responses:
+      "200":
+        description: The quote, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data: { $ref: ../components/route.yaml#/RouteQuote }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                ok: false,
+                code: feature_unavailable,
+                message: Routing is unavailable.,
+                retryable: false,
+                requestId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11,
+              }
+preview:
+  post:
+    operationId: previewRoute
+    summary: Preview a smart route with no account.
+    description: >-
+      Walks live books at each venue's public entry-tier fee with the same planner as an executable route.
+      Anonymous requests are rate-limited by IP and support BTC and ETH perpetuals on Hyperliquid, Aster and Lighter,
+      with a USD notional from 1,000 to 20,000,000. The indicative result reserves, signs and places nothing.
+    tags: [Orders]
+    x-owner: "05"
+    x-scope: public
+    x-rate-class: heavy
+    x-idempotency: none
+    x-refusals: [invalid_request, not_found, feature_unavailable, routing_unavailable_testnet, rate_limited]
+    security: [{}, { session: [] }, { apiKey: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/route.yaml#/RoutePreviewRequest
+          example: { group: "perp:BTC", side: buy, notional: "100000", fundingHorizonHours: 24 }
+    responses:
+      "200":
+        description: The indicative quote, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data: { $ref: ../components/route.yaml#/RoutePreview }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                ok: false,
+                code: feature_unavailable,
+                message: Route preview is unavailable.,
+                retryable: false,
+                requestId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11,
+              }
+list:
+  get:
+    operationId: listRoutes
+    summary: List routes newest first.
+    tags: [Orders]
+    x-owner: "05"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: [cursor_invalid, feature_unavailable]
+    security: [{ session: [] }, { apiKey: [] }]
+    parameters:
+      - name: state
+        in: query
+        schema:
+          type: array
+          items: { $ref: ../components/route.yaml#/RouteState }
+        style: form
+        explode: false
+      - name: group
+        in: query
+        schema: { type: string, minLength: 1, maxLength: 128 }
+      - $ref: ../components/parameters.yaml#/From
+      - $ref: ../components/parameters.yaml#/To
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: One page of routes, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data, nextCursor]
+                  properties:
+                    ok: { const: true }
+                    data:
+                      type: array
+                      items: { $ref: ../components/route.yaml#/Route }
+                    nextCursor:
+                      oneOf: [{ type: string }, { type: "null" }]
+                - $ref: ../components/envelope.yaml#/Refusal
+            example: { ok: true, data: [], nextCursor: null }
+route:
+  parameters:
+    - name: routeId
+      in: path
+      required: true
+      schema: { $ref: ../components/primitives.yaml#/Uuid }
+  get:
+    operationId: getRoute
+    summary: Get the route and its confirmed plans.
+    tags: [Orders]
+    x-owner: "05"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: [not_found, account_not_bound, feature_unavailable]
+    security: [{ session: [] }, { apiKey: [] }]
+    responses:
+      "200":
+        description: The route, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data: { $ref: ../components/route.yaml#/Route }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                ok: false,
+                code: not_found,
+                message: Route was not found.,
+                retryable: false,
+                requestId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11,
+              }
+  delete:
+    operationId: cancelRoute
+    summary: Cancel a route.
+    description: Returns the current state of the parent after the request.
+    tags: [Orders]
+    x-owner: "05"
+    x-scope: trade
+    x-rate-class: protect
+    x-idempotency: target
+    x-refusals: [not_found, account_not_bound, feature_unavailable]
+    security: [{ session: [] }, { apiKey: [] }]
+    responses:
+      "200":
+        description: The route, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ok, data]
+                  properties:
+                    ok: { const: true }
+                    data: { $ref: ../components/route.yaml#/Route }
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              {
+                ok: false,
+                code: not_found,
+                message: Route was not found.,
+                retryable: false,
+                requestId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d11,
+              }

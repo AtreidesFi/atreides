@@ -1,0 +1,234 @@
+# Passport operations (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+me:
+  get:
+    operationId: getMyPassport
+    x-owner: "11"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    summary: Read my passport.
+    description: The signed-in user's track record, with exact figures.
+    tags:
+      - Community
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/passport.yaml#/MyPassport
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                token: k7Hq2mXa9Lp3
+                displayName: northwind
+                metrics:
+                  - scope: all
+                    period: 30d
+                    firstDay: 2026-10-08
+                    observationDays: 30
+                    activeDays: 24
+                    totalReturn: "0.1820"
+                    maxDrawdown: "0.0740"
+                    rasT: "2.4595"
+                    volumeThroughUsBand: 100k-1m
+                    shareThroughUs: "0.62"
+                    venues:
+                      - hyperliquid
+                    complete: false
+                    missing:
+                      - venue: aster
+                        reason: source_missing
+                showPublicly: true
+                exact:
+                  - scope: all
+                    period: 30d
+                    volumeThroughUsUsd: "412300.55"
+                    equityUsd: "10840.50"
+                    pnlUsd: "840.50"
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+  put:
+    operationId: updateMyPassport
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - display_name_invalid
+      - display_name_taken
+      - idempotency_conflict
+    summary: Update my passport.
+    description: Sets the public display name and whether the passport is shown at its public link.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/passport.yaml#/UpdatePassportRequest
+          example:
+            displayName: northwind
+            showPublicly: true
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/passport.yaml#/MyPassport
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                token: k7Hq2mXa9Lp3
+                displayName: northwind
+                metrics:
+                  - scope: all
+                    period: 30d
+                    firstDay: 2026-10-08
+                    observationDays: 30
+                    activeDays: 24
+                    totalReturn: "0.1820"
+                    maxDrawdown: "0.0740"
+                    rasT: "2.4595"
+                    volumeThroughUsBand: 100k-1m
+                    shareThroughUs: "0.62"
+                    venues:
+                      - hyperliquid
+                    complete: false
+                    missing:
+                      - venue: aster
+                        reason: source_missing
+                showPublicly: true
+                exact:
+                  - scope: all
+                    period: 30d
+                    volumeThroughUsUsd: "412300.55"
+                    equityUsd: "10840.50"
+                    pnlUsd: "840.50"
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+public:
+  parameters:
+    - name: token
+      in: path
+      required: true
+      description: The passport token.
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9_-]{8,64}$
+  get:
+    operationId: getPassport
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: passport.public
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    summary: Read a public passport.
+    description: "Shared track record by token: bands and ratios, never exact balances. Not found when the owner does not show it."
+    tags:
+      - Community
+    security: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/passport.yaml#/PublicPassport
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                token: k7Hq2mXa9Lp3
+                displayName: northwind
+                metrics:
+                  - scope: all
+                    period: 30d
+                    firstDay: 2026-10-08
+                    observationDays: 30
+                    activeDays: 24
+                    totalReturn: "0.1820"
+                    maxDrawdown: "0.0740"
+                    rasT: "2.4595"
+                    volumeThroughUsBand: 100k-1m
+                    shareThroughUs: "0.62"
+                    venues:
+                      - hyperliquid
+                    complete: false
+                    missing:
+                      - venue: aster
+                        reason: source_missing
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Passport was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a

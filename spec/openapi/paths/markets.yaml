@@ -1,0 +1,232 @@
+# Market data under /v1/markets/ (03 §7.3; owner 08, shapes from 08 `Bar` and the live protocol).
+candles:
+  parameters:
+    - &a1
+      name: instrumentId
+      in: path
+      required: true
+      description: The instrument id, with the colon URL-encoded.
+      schema:
+        $ref: ../components/venues.yaml#/InstrumentId
+  get:
+    operationId: getCandles
+    summary: Read candles for an instrument, oldest first. The Trade chart reads this.
+    description: Page left by passing the earliest bar's time as `to`. Bars use 08's `Bar`; the open bar of `candles:`
+      frames has the same shape.
+    tags:
+      - Markets
+    x-owner: "08"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - not_found
+    security: &a2 []
+    parameters:
+      - name: tf
+        in: query
+        required: true
+        description: The bar size.
+        schema:
+          $ref: ../components/markets.yaml#/CandleTimeframe
+      - $ref: ../components/parameters.yaml#/From
+      - $ref: ../components/parameters.yaml#/To
+      - name: limit
+        in: query
+        required: false
+        description: The most bars to return.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1500
+          default: 500
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/markets.yaml#/Candle
+                - &a3
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - t: 1794000000000
+                  open: "67000.5"
+                  high: "67100"
+                  low: "66950"
+                  close: "67050"
+                  volume: "12.5"
+                  notional: "837500"
+                  trades: 420
+                  buyNotional: "420000"
+                  sellNotional: "417500"
+                  complete: true
+                  origin: ours
+book:
+  parameters:
+    - *a1
+  get:
+    operationId: getBook
+    summary: Read the live order book snapshot.
+    tags:
+      - Markets
+    x-owner: "08"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - stale_price
+    security: *a2
+    parameters:
+      - name: depth
+        in: query
+        required: false
+        description: Levels per side.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/markets.yaml#/BookSnapshotJson
+                - *a3
+            example:
+              ok: true
+              data:
+                instrumentId: hyperliquid:BTC
+                bids:
+                  - px: "67049"
+                    sz: "0.5"
+                asks:
+                  - px: "67051"
+                    sz: "0.4"
+                at: 1794000000000
+trades:
+  parameters:
+    - *a1
+  get:
+    operationId: getTrades
+    summary: Read the latest trade prints, newest first.
+    tags:
+      - Markets
+    x-owner: "08"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals: []
+    security: *a2
+    parameters:
+      - name: limit
+        in: query
+        required: false
+        description: The most prints to return.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/markets.yaml#/TradePrint
+                - *a3
+            example:
+              ok: true
+              data:
+                - ts: 1794000000000
+                  id: t-1
+                  px: "67050"
+                  sz: "0.01"
+                  side: buy
+funding:
+  parameters:
+    - *a1
+  get:
+    operationId: getFunding
+    summary: Read settled funding rates over a range.
+    tags:
+      - Markets
+    x-owner: "08"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals: []
+    security: *a2
+    parameters:
+      - $ref: ../components/parameters.yaml#/From
+      - $ref: ../components/parameters.yaml#/To
+      - name: limit
+        in: query
+        required: false
+        description: The most settled points to return; the newest ones of the range.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 20000
+          default: 20000
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/markets.yaml#/FundingPoint
+                - *a3
+            example:
+              ok: true
+              data:
+                - settledAt: 1794000000000
+                  rate: "0.0000125"
+                  intervalHours: 1

@@ -1,0 +1,93 @@
+# The Overview volume block (13 §11.3).
+volume:
+  get:
+    operationId: getOverviewVolume
+    summary: Read traded volume by venue and day.
+    description: Notional is per quote asset and never converted. At most 366 days.
+    tags:
+      - Web
+    x-owner: "13"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - invalid_request
+      - account_not_bound
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: from
+        in: query
+        required: true
+        description: First UTC day, inclusive.
+        schema: &a1
+          $ref: ../components/reads.yaml#/UtcDay
+      - name: to
+        in: query
+        required: true
+        description: Last UTC day, inclusive; at most 366 days after from.
+        schema: *a1
+      - name: groupBy
+        in: query
+        required: true
+        description: How rows are grouped.
+        schema:
+          type: string
+          enum:
+            - venue
+            - day
+            - venue_day
+      - name: mode
+        in: query
+        required: false
+        description: Only this connection mode.
+        schema:
+          type: string
+          enum:
+            - direct
+            - gateway
+            - terminal
+      - name: accountId
+        in: query
+        required: false
+        description: Only these accounts; repeat the parameter.
+        schema:
+          type: array
+          items:
+            $ref: ../components/primitives.yaml#/Uuid
+    responses:
+      "200":
+        description: The answer, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/overview.yaml#/VolumeView
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                rows:
+                  - venue: hyperliquid
+                    day: null
+                    notional:
+                      - amount: "1200000"
+                        asset: usdc
+                    fills: 310
+                    ourFee:
+                      - amount: "420.5"
+                        asset: usdc
+                    venueFee:
+                      - amount: "380.2"
+                        asset: usdc
+                    reconciled: true
+                asOf: 2026-11-07T09:30:00.000Z

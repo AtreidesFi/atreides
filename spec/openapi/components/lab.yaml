@@ -1,0 +1,1469 @@
+# Strategy lab views (09 §5.8, §6.2). Ids are UUIDv7, instants are RFC 3339 UTC, money is a decimal string.
+StrategyKind:
+  type: string
+  enum:
+    - rules
+    - spread
+    - scan
+    - schedule
+    - bot
+    - mandate
+StrategyOrigin:
+  type: string
+  enum:
+    - assistant
+    - builder
+    - api
+    - card
+StrategyStatus:
+  type: string
+  enum:
+    - active
+    - archived
+StrategySpec:
+  description: >-
+    A strategy spec: the `strategy/v1` document of 09 §5.1, an object whose members depend on `kind`. The server
+    validates all of it with the registry of 09 §5.1 and answers every problem in `lab_spec_invalid`, so the API
+    schema does not repeat the document; `@atr/strategy` owns its type.
+SpecIssue:
+  type: object
+  required:
+    - pointer
+    - code
+    - message
+  properties:
+    pointer:
+      type: string
+      description: A JSON pointer into the spec; empty for the whole document.
+    code:
+      type: string
+    message:
+      type: string
+StrategyHeadline:
+  type: object
+  description: The newest done backtest of the current version, best variant, unseen part first.
+  required:
+    - runId
+    - returnUnseen
+    - returnTrain
+    - trades
+    - maxDrawdown
+  properties:
+    runId:
+      $ref: ./primitives.yaml#/Uuid
+    returnUnseen:
+      $ref: ./primitives.yaml#/DecStr
+    returnTrain:
+      $ref: ./primitives.yaml#/DecStr
+    trades:
+      type: integer
+      minimum: 0
+    maxDrawdown:
+      $ref: ./primitives.yaml#/DecStr
+StrategyView:
+  type: object
+  required:
+    - id
+    - number
+    - name
+    - kind
+    - status
+    - originDoor
+    - derivedFromCardSlug
+    - currentVersion
+    - currentVersionId
+    - killSwitch
+    - killReason
+    - headline
+    - runs
+    - createdAt
+    - updatedAt
+    - archivedAt
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    number:
+      type: integer
+      minimum: 1
+      description: The user's own serial number of the strategy.
+    name:
+      type: string
+    kind:
+      $ref: ./lab.yaml#/StrategyKind
+    status:
+      $ref: ./lab.yaml#/StrategyStatus
+    originDoor:
+      $ref: ./lab.yaml#/StrategyOrigin
+    derivedFromCardSlug:
+      type: [string, "null"]
+    currentVersion:
+      type: integer
+      minimum: 1
+    currentVersionId:
+      $ref: ./primitives.yaml#/Uuid
+    killSwitch:
+      type: boolean
+    killReason:
+      type: [string, "null"]
+    headline:
+      oneOf:
+        - $ref: ./lab.yaml#/StrategyHeadline
+        - type: "null"
+    runs:
+      type: object
+      required:
+        - live
+        - paper
+        - lost
+      properties:
+        live:
+          type: integer
+          minimum: 0
+        paper:
+          type: integer
+          minimum: 0
+        lost:
+          type: integer
+          minimum: 0
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    updatedAt:
+      $ref: ./primitives.yaml#/Instant
+    archivedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+VersionView:
+  type: object
+  description: An immutable version of a strategy. `spec` is present on a read of one version and on create, absent in lists.
+  required:
+    - id
+    - strategyId
+    - version
+    - specSha256
+    - engineVersion
+    - parentVersionId
+    - createdVia
+    - note
+    - createdAt
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    strategyId:
+      $ref: ./primitives.yaml#/Uuid
+    version:
+      type: integer
+      minimum: 1
+    specSha256:
+      type: string
+      description: Hex sha256 of the canonical spec.
+      pattern: "^[0-9a-f]{64}$"
+    engineVersion:
+      type: string
+    parentVersionId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    createdVia:
+      $ref: ./lab.yaml#/StrategyOrigin
+    note:
+      type: [string, "null"]
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    spec:
+      type: object
+      additionalProperties: true
+      description: Canonical strategy/v1 spec, validated by the strategy engine.
+RunStats:
+  type: object
+  required:
+    - statsDay
+    - dayStartEquity
+    - equity
+    - realizedPnl
+    - unrealizedPnl
+    - venueFees
+    - ourFees
+    - fundingPaid
+    - fundingEstimated
+    - openNotional
+    - openPositions
+    - ordersToday
+    - marksFresh
+    - computedAt
+  properties:
+    statsDay:
+      type: string
+      pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    dayStartEquity:
+      $ref: ./primitives.yaml#/DecStr
+    equity:
+      $ref: ./primitives.yaml#/DecStr
+    realizedPnl:
+      $ref: ./primitives.yaml#/DecStr
+    unrealizedPnl:
+      $ref: ./primitives.yaml#/DecStr
+    venueFees:
+      $ref: ./primitives.yaml#/DecStr
+    ourFees:
+      $ref: ./primitives.yaml#/DecStr
+    fundingPaid:
+      $ref: ./primitives.yaml#/DecStr
+    fundingEstimated:
+      type: boolean
+    openNotional:
+      $ref: ./primitives.yaml#/DecStr
+    openPositions:
+      type: integer
+      minimum: 0
+    ordersToday:
+      type: integer
+      minimum: 0
+    marksFresh:
+      type: boolean
+    computedAt:
+      $ref: ./primitives.yaml#/Instant
+RunView:
+  type: object
+  required:
+    - id
+    - strategyId
+    - strategyNumber
+    - versionId
+    - version
+    - mode
+    - venueAccountId
+    - status
+    - pauseReason
+    - stopPolicy
+    - caps
+    - quoteAsset
+    - runner
+    - stats
+    - createdAt
+    - startedAt
+    - stoppedAt
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    strategyId:
+      $ref: ./primitives.yaml#/Uuid
+    strategyNumber:
+      type: integer
+      minimum: 1
+    versionId:
+      $ref: ./primitives.yaml#/Uuid
+    version:
+      type: integer
+      minimum: 1
+    mode:
+      type: string
+      enum:
+        - paper
+        - direct
+        - gateway
+    venueAccountId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    status:
+      type: string
+      enum:
+        - armed
+        - live
+        - paused
+        - lost
+        - stopping
+        - stopped
+        - failed
+    pauseReason:
+      $ref: ./lab.yaml#/RunPauseReason
+    stopPolicy:
+      type:
+        - string
+        - "null"
+      enum:
+        - leave_positions
+        - close_positions
+        - null
+    caps:
+      $ref: ./lab-runs.yaml#/RunCaps
+    quoteAsset:
+      $ref: ./primitives.yaml#/AssetId
+    runner:
+      oneOf:
+        - type: object
+          required:
+            - lang
+            - version
+            - lastHeartbeatAt
+          properties:
+            lang:
+              type: string
+              enum:
+                - ts
+                - python
+                - lab
+            version:
+              type: [string, "null"]
+            lastHeartbeatAt:
+              oneOf:
+                - $ref: ./primitives.yaml#/Instant
+                - type: "null"
+        - type: "null"
+    stats:
+      oneOf:
+        - $ref: ./lab.yaml#/RunStats
+        - type: "null"
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    startedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    stoppedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+LabRunView:
+  type: object
+  required:
+    - id
+    - kind
+    - status
+    - strategyId
+    - strategyNumber
+    - versionId
+    - version
+    - params
+    - plan
+    - progress
+    - queuePosition
+    - cachedFromRunId
+    - bestResultId
+    - error
+    - createdAt
+    - startedAt
+    - finishedAt
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    kind:
+      type: string
+      enum:
+        - backtest
+        - replay
+        - mandate_check
+        - finder_scan
+    status:
+      type: string
+      enum:
+        - queued
+        - running
+        - done
+        - failed
+        - cancelled
+        - refused
+    strategyId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    strategyNumber:
+      type: [integer, "null"]
+    versionId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    version:
+      type: [integer, "null"]
+    params:
+      oneOf:
+        - $ref: ./lab.yaml#/LabRunParams
+        - type: "null"
+    plan:
+      oneOf:
+        - $ref: ./lab.yaml#/LabRunPlan
+        - type: "null"
+    progress:
+      type: object
+      required:
+        - permille
+        - stage
+        - etaAt
+      properties:
+        permille:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        stage:
+          type: string
+        etaAt:
+          oneOf:
+            - $ref: ./primitives.yaml#/Instant
+            - type: "null"
+    queuePosition:
+      type: [integer, "null"]
+    cachedFromRunId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    bestResultId:
+      oneOf:
+        - $ref: ./primitives.yaml#/Uuid
+        - type: "null"
+    error:
+      oneOf:
+        - type: object
+          required:
+            - code
+            - details
+          properties:
+            code:
+              type: string
+            details:
+              $ref: ./lab.yaml#/LabScalarDetails
+        - type: "null"
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    startedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    finishedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+FollowView:
+  type: object
+  required:
+    - id
+    - target
+    - paperRunId
+    - alerts
+    - alertChannels
+    - status
+    - createdAt
+    - endedAt
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    target:
+      oneOf:
+        - type: object
+          required:
+            - kind
+            - versionId
+            - strategyNumber
+          properties:
+            kind:
+              const: strategy
+            versionId:
+              $ref: ./primitives.yaml#/Uuid
+            strategyNumber:
+              type: integer
+              minimum: 1
+        - type: object
+          required:
+            - kind
+            - cardSlug
+            - copiedStrategyNumber
+          properties:
+            kind:
+              const: card
+            cardSlug:
+              type: string
+            copiedStrategyNumber:
+              type: integer
+              minimum: 1
+    paperRunId:
+      $ref: ./primitives.yaml#/Uuid
+    alerts:
+      type: boolean
+    alertChannels:
+      type: array
+      items:
+        type: string
+        enum:
+          - discord
+          - telegram
+    status:
+      type: string
+      enum:
+        - active
+        - ended
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    endedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+StrategyDetail:
+  type: object
+  required:
+    - strategy
+    - currentVersion
+    - labRuns
+    - runs
+    - follows
+  properties:
+    strategy:
+      $ref: ./lab.yaml#/StrategyView
+    currentVersion:
+      $ref: ./lab.yaml#/VersionView
+    labRuns:
+      type: array
+      description: The newest 5.
+      items:
+        $ref: ./lab.yaml#/LabRunView
+    runs:
+      type: array
+      description: Every run not stopped, then the newest 10 stopped.
+      items:
+        $ref: ./lab.yaml#/RunView
+    follows:
+      type: array
+      items:
+        $ref: ./lab.yaml#/FollowView
+CoverageLine:
+  type: object
+  required:
+    - instrument
+    - series
+    - ratio
+    - earliest
+    - holes
+  properties:
+    instrument:
+      $ref: ./venues.yaml#/InstrumentId
+    series:
+      type: string
+    ratio:
+      $ref: ./primitives.yaml#/DecStr
+    earliest:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    holes:
+      type: array
+      items:
+        type: object
+        required:
+          - from
+          - to
+          - explained
+        properties:
+          from:
+            $ref: ./primitives.yaml#/Instant
+          to:
+            $ref: ./primitives.yaml#/Instant
+          explained:
+            type: boolean
+SpecValidation:
+  description: A validation answer, not a refusal. `ok` tells whether the spec is accepted.
+  oneOf:
+    - type: object
+      required:
+        - ok
+        - sha256
+        - coverage
+        - estimate
+      properties:
+        ok:
+          const: true
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        coverage:
+          type: array
+          items:
+            $ref: ./lab.yaml#/CoverageLine
+        estimate:
+          type: object
+          required:
+            - variants
+            - bars
+            - estimateMs
+          properties:
+            variants:
+              type: integer
+              minimum: 0
+            bars:
+              type: integer
+              minimum: 0
+            estimateMs:
+              type: integer
+              minimum: 0
+    - type: object
+      required:
+        - ok
+        - issues
+      properties:
+        ok:
+          const: false
+        issues:
+          type: array
+          items:
+            $ref: ./lab.yaml#/SpecIssue
+CreateStrategyRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - name
+    - spec
+    - originDoor
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    spec:
+      $ref: ./lab.yaml#/StrategySpec
+    originDoor:
+      type: string
+      enum:
+        - builder
+        - api
+        - assistant
+    note:
+      type: string
+      maxLength: 500
+UpdateStrategyRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    status:
+      $ref: ./lab.yaml#/StrategyStatus
+CreateVersionRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - spec
+  properties:
+    spec:
+      $ref: ./lab.yaml#/StrategySpec
+    note:
+      type: string
+      maxLength: 500
+    makeCurrent:
+      type: boolean
+      default: true
+SetCurrentRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - versionId
+  properties:
+    versionId:
+      $ref: ./primitives.yaml#/Uuid
+KillRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    reason:
+      type: string
+      maxLength: 500
+ValidateSpecRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - spec
+  properties:
+    spec:
+      $ref: ./lab.yaml#/StrategySpec
+    forLive:
+      type: boolean
+    window:
+      type: object
+      additionalProperties: false
+      required:
+        - from
+        - to
+      properties:
+        from:
+          $ref: ./primitives.yaml#/Instant
+        to:
+          $ref: ./primitives.yaml#/Instant
+EmptyRequest:
+  type: object
+  additionalProperties: false
+StrategyCreated:
+  type: object
+  required:
+    - strategy
+    - version
+  properties:
+    strategy:
+      $ref: ./lab.yaml#/StrategyView
+    version:
+      $ref: ./lab.yaml#/VersionView
+VersionCreated:
+  type: object
+  required:
+    - version
+    - created
+  properties:
+    version:
+      $ref: ./lab.yaml#/VersionView
+    created:
+      type: boolean
+      description: False when the canonical spec equals an existing version, which is returned unchanged.
+KillResult:
+  type: object
+  required:
+    - strategy
+    - runs
+  properties:
+    strategy:
+      $ref: ./lab.yaml#/StrategyView
+    runs:
+      type: array
+      items:
+        $ref: ./lab.yaml#/RunView
+
+LabRunParams:
+  type: "object"
+  required: ["kind", "strategyVersionId", "from", "to"]
+  properties:
+    kind:
+      type: "string"
+      enum: ["backtest", "replay", "mandate_check"]
+    strategyVersionId:
+      $ref: "./primitives.yaml#/Uuid"
+    from:
+      $ref: "./primitives.yaml#/Instant"
+    to:
+      $ref: "./primitives.yaml#/Instant"
+    split:
+      $ref: "./primitives.yaml#/DecStr"
+    grid:
+      oneOf:
+        [
+          { "type": "object", "additionalProperties": { "type": "array", "items": {}, "minItems": 1 } },
+          { "type": "null" },
+        ]
+    stages:
+      type: "array"
+      items:
+        type: "string"
+        enum: ["bar", "tick"]
+      minItems: 1
+      maxItems: 2
+      uniqueItems: true
+    trimToCoverage:
+      type: "boolean"
+    feeOrigin:
+      type: "string"
+      enum: ["algo", "manual"]
+    ourTier:
+      oneOf:
+        [
+          {
+            "type": "object",
+            "required": ["kind"],
+            "properties": { "kind": { "type": "string", "enum": ["mine", "base"] } },
+            "additionalProperties": false,
+          },
+          {
+            "type": "object",
+            "required": ["kind", "rate"],
+            "properties":
+              { "kind": { "type": "string", "enum": ["fixed"] }, "rate": { "$ref": "./primitives.yaml#/DecStr" } },
+            "additionalProperties": false,
+          },
+        ]
+    venueFeeOverrides:
+      type: "object"
+      additionalProperties:
+        type: "object"
+        required: ["maker", "taker"]
+        properties:
+          maker:
+            $ref: "./primitives.yaml#/DecStr"
+          taker:
+            $ref: "./primitives.yaml#/DecStr"
+        additionalProperties: false
+    latencyMs:
+      oneOf: [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+  additionalProperties: false
+LabRunPlan:
+  type: "object"
+  required: ["instruments", "variants", "bars", "window", "trimmedFrom", "holes", "estimateMs"]
+  properties:
+    instruments:
+      type: "array"
+      items:
+        type: "string"
+    variants:
+      type: "integer"
+    bars:
+      type: "integer"
+    window:
+      type: "object"
+      required: ["from", "to", "trainEnd"]
+      properties:
+        from:
+          type: "integer"
+        to:
+          type: "integer"
+        trainEnd:
+          type: "integer"
+    trimmedFrom:
+      oneOf:
+        [
+          {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": { "from": { "type": "integer" }, "to": { "type": "integer" } },
+          },
+          { "type": "null" },
+        ]
+    holes:
+      type: "array"
+      items:
+        type: "object"
+        required: ["instrument", "series", "from", "to"]
+        properties:
+          instrument:
+            type: "string"
+          series:
+            type: "string"
+          from:
+            type: "integer"
+          to:
+            type: "integer"
+    estimateMs:
+      type: "integer"
+LabRunCreated:
+  type: "object"
+  required: ["run", "plan", "cachedFrom"]
+  properties:
+    run:
+      $ref: "./lab.yaml#/LabRunView"
+    plan:
+      $ref: "./lab.yaml#/LabRunPlan"
+    cachedFrom:
+      oneOf: [{ "$ref": "./primitives.yaml#/Uuid" }, { "type": "null" }]
+LabResultSummary:
+  type: "object"
+  required:
+    [
+      "id",
+      "runId",
+      "variantKey",
+      "variantParams",
+      "stage",
+      "isAsked",
+      "isBest",
+      "rank",
+      "disqualified",
+      "quoteAsset",
+      "budget",
+      "trades",
+      "pnl",
+      "returns",
+      "maxDrawdown",
+      "scoreTrain",
+      "sharpe",
+      "worstDay",
+      "exposure",
+      "ranOutAt",
+      "trainEndAt",
+      "caveats",
+      "caveatCounts",
+      "survival",
+    ]
+  properties:
+    id:
+      $ref: "./primitives.yaml#/Uuid"
+    runId:
+      $ref: "./primitives.yaml#/Uuid"
+    variantKey:
+      type: "string"
+    variantParams:
+      type: "object"
+      additionalProperties: true
+    stage:
+      type: "string"
+      enum: ["bar", "tick", "replay", "mandate"]
+    isAsked:
+      type: "boolean"
+    isBest:
+      type: "boolean"
+    rank:
+      oneOf: [{ "type": "integer" }, { "type": "null" }]
+    disqualified:
+      oneOf: [{ "type": "string", "enum": ["few_trades", "liquidation_rate", "budget_spent"] }, { "type": "null" }]
+    quoteAsset:
+      $ref: "./primitives.yaml#/AssetId"
+    budget:
+      $ref: "./primitives.yaml#/DecStr"
+    trades:
+      type: "object"
+      required: ["total", "train", "unseen", "wins", "liquidations"]
+      properties:
+        total:
+          type: "integer"
+        train:
+          type: "integer"
+        unseen:
+          type: "integer"
+        wins:
+          type: "integer"
+        liquidations:
+          type: "integer"
+    pnl:
+      type: "object"
+      required: ["gross", "venueFees", "ourFees", "fundingPaid", "slippageCost", "net"]
+      properties:
+        gross:
+          $ref: "./primitives.yaml#/DecStr"
+        venueFees:
+          $ref: "./primitives.yaml#/DecStr"
+        ourFees:
+          $ref: "./primitives.yaml#/DecStr"
+        fundingPaid:
+          $ref: "./primitives.yaml#/DecStr"
+        slippageCost:
+          $ref: "./primitives.yaml#/DecStr"
+        net:
+          $ref: "./primitives.yaml#/DecStr"
+    returns:
+      type: "object"
+      required: ["total", "train", "unseen"]
+      properties:
+        total:
+          $ref: "./primitives.yaml#/DecStr"
+        train:
+          $ref: "./primitives.yaml#/DecStr"
+        unseen:
+          $ref: "./primitives.yaml#/DecStr"
+    maxDrawdown:
+      type: "object"
+      required: ["total", "train", "unseen"]
+      properties:
+        total:
+          $ref: "./primitives.yaml#/DecStr"
+        train:
+          $ref: "./primitives.yaml#/DecStr"
+        unseen:
+          $ref: "./primitives.yaml#/DecStr"
+    scoreTrain:
+      $ref: "./primitives.yaml#/DecStr"
+    sharpe:
+      type: "object"
+      required: ["train", "unseen"]
+      properties:
+        train:
+          oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+        unseen:
+          oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    worstDay:
+      $ref: "./primitives.yaml#/DecStr"
+    exposure:
+      $ref: "./primitives.yaml#/DecStr"
+    ranOutAt:
+      oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+    trainEndAt:
+      $ref: "./primitives.yaml#/Instant"
+    caveats:
+      type: array
+      items:
+        $ref: ./lab.yaml#/LabCaveatCode
+    caveatCounts:
+      type: "object"
+      additionalProperties:
+        type: "integer"
+    survival:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+LabTradeView:
+  type: "object"
+  required:
+    [
+      "tradeNo",
+      "leg",
+      "instrument",
+      "side",
+      "part",
+      "decidedAt",
+      "entryAt",
+      "exitAt",
+      "entryPx",
+      "exitPx",
+      "size",
+      "leverage",
+      "entryLiquidity",
+      "exitLiquidity",
+      "exitReason",
+      "grossPnl",
+      "venueFees",
+      "ourFees",
+      "fundingPaid",
+      "slippageCost",
+      "netPnl",
+      "caveats",
+    ]
+  properties:
+    tradeNo:
+      type: "integer"
+    leg:
+      type: "string"
+      enum: ["a", "b"]
+    instrument:
+      $ref: ./venues.yaml#/InstrumentId
+    side:
+      type: "string"
+      enum: ["long", "short"]
+    part:
+      type: "string"
+      enum: ["train", "unseen", "paper"]
+    decidedAt:
+      $ref: "./primitives.yaml#/Instant"
+    entryAt:
+      $ref: "./primitives.yaml#/Instant"
+    exitAt:
+      oneOf: [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }]
+    entryPx:
+      $ref: "./primitives.yaml#/DecStr"
+    exitPx:
+      oneOf: [{ "$ref": "./primitives.yaml#/DecStr" }, { "type": "null" }]
+    size:
+      $ref: "./primitives.yaml#/DecStr"
+    leverage:
+      type: "integer"
+    entryLiquidity:
+      type: "string"
+      enum: ["maker", "taker"]
+    exitLiquidity:
+      oneOf: [{ "type": "string", "enum": ["maker", "taker"] }, { "type": "null" }]
+    exitReason:
+      type: "string"
+      enum: ["tp", "sl", "trailing", "time", "rule", "liquidation", "end_of_data", "open"]
+    grossPnl:
+      $ref: "./primitives.yaml#/DecStr"
+    venueFees:
+      $ref: "./primitives.yaml#/DecStr"
+    ourFees:
+      $ref: "./primitives.yaml#/DecStr"
+    fundingPaid:
+      $ref: "./primitives.yaml#/DecStr"
+    slippageCost:
+      $ref: "./primitives.yaml#/DecStr"
+    netPnl:
+      $ref: "./primitives.yaml#/DecStr"
+    caveats:
+      type: array
+      items:
+        $ref: ./lab.yaml#/LabCaveatCode
+LabEquityView:
+  type: "object"
+  required: ["points"]
+  properties:
+    points:
+      type: "array"
+      items:
+        type: "object"
+        required: ["at", "equity", "drawdown", "openNotional"]
+        properties:
+          at:
+            $ref: "./primitives.yaml#/Instant"
+          equity:
+            $ref: "./primitives.yaml#/DecStr"
+          drawdown:
+            $ref: "./primitives.yaml#/DecStr"
+          openNotional:
+            $ref: "./primitives.yaml#/DecStr"
+      maxItems: 5000
+LabPinView:
+  type: "object"
+  required: ["pinned"]
+  properties:
+    pinned:
+      type: "boolean"
+LabSaveVersionRequest:
+  type: "object"
+  properties:
+    note:
+      type: "string"
+      maxLength: 4000
+  additionalProperties: false
+LabVenueView:
+  type: "object"
+  required: ["venue", "backtestAllowed", "exportAllowed", "ready", "feeModel"]
+  properties:
+    venue:
+      $ref: "./primitives.yaml#/VenueId"
+    backtestAllowed:
+      type: "boolean"
+    exportAllowed:
+      type: "boolean"
+    ready:
+      type: "boolean"
+    feeModel:
+      type: "boolean"
+LabCoverageView:
+  oneOf:
+    [
+      { "$ref": "./lab.yaml#/CoverageLine" },
+      {
+        "type": "object",
+        "required": ["venues"],
+        "properties":
+          {
+            "venues":
+              {
+                "type": "array",
+                "items":
+                  {
+                    "type": "object",
+                    "required": ["venue", "ready", "licensed", "markets", "earliest", "holes"],
+                    "properties":
+                      {
+                        "venue": { "$ref": "./primitives.yaml#/VenueId" },
+                        "ready": { "type": "boolean" },
+                        "licensed": { "type": "boolean" },
+                        "markets": { "type": "integer" },
+                        "earliest": { "oneOf": [{ "$ref": "./primitives.yaml#/Instant" }, { "type": "null" }] },
+                        "holes": { "type": "integer" },
+                      },
+                  },
+              },
+          },
+      },
+    ]
+RunPauseReason:
+  type: [string, "null"]
+  enum:
+    - user
+    - kill_switch
+    - cap_daily_loss
+    - cap_open_notional
+    - cap_open_positions
+    - cap_orders_per_day
+    - order_refused
+    - venue_state
+    - runner_reported
+    - null
+LabScalarDetails:
+  type: object
+  additionalProperties:
+    type: [string, number, boolean, "null"]
+LabCaveatCode:
+  type: string
+  enum:
+    - thin_sample
+    - many_variants
+    - unseen_negative
+    - trimmed_to_coverage
+    - slippage_from_default
+    - book_stale
+    - mark_from_close
+    - liquidation_conservative
+    - trigger_source_assumed
+    - stable_parity_assumed
+    - funding_absent
+    - fee_override
+    - leg_unwound
+    - paper
+    - latency_proxy
+SpreadLeg:
+  type: object
+  additionalProperties: false
+  required: [venue, instrument, value, depthUsd]
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instrument:
+      $ref: ./venues.yaml#/InstrumentId
+    value:
+      $ref: ./primitives.yaml#/DecStr
+    depthUsd:
+      $ref: ./primitives.yaml#/DecStr
+SpreadRow:
+  type: object
+  additionalProperties: false
+  required: [kind, base, legs, grossSpread, costRoundTrip, netSpread, holdDays, persistedScans, flagged, onYourVenues]
+  properties:
+    kind: { type: string, enum: [funding_spread, price_gap] }
+    base:
+      $ref: ./primitives.yaml#/AssetId
+    legs:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items:
+        $ref: ./lab.yaml#/SpreadLeg
+    grossSpread:
+      $ref: ./primitives.yaml#/DecStr
+    costRoundTrip:
+      $ref: ./primitives.yaml#/DecStr
+    netSpread:
+      $ref: ./primitives.yaml#/DecStr
+    holdDays: { type: integer, minimum: 1, maximum: 30 }
+    persistedScans: { type: integer, minimum: 0 }
+    flagged: { type: boolean }
+    onYourVenues: { type: boolean }
+ResearchCardLeg:
+  type: object
+  additionalProperties: false
+  required: [venue, instrument]
+  properties:
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instrument:
+      $ref: ./venues.yaml#/InstrumentId
+ResearchCardMetrics:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        [kind, trades, days, returnUnseen, returnTrain, maxDrawdown, netPnlOnBudget, budget, quoteAsset, variantsTried]
+      properties:
+        kind: { const: tested_strategy }
+        trades: { type: integer, minimum: 0 }
+        days: { type: integer, minimum: 0 }
+        returnUnseen:
+          $ref: ./primitives.yaml#/DecStr
+        returnTrain:
+          $ref: ./primitives.yaml#/DecStr
+        maxDrawdown:
+          $ref: ./primitives.yaml#/DecStr
+        netPnlOnBudget:
+          $ref: ./primitives.yaml#/DecStr
+        budget:
+          $ref: ./primitives.yaml#/DecStr
+        quoteAsset:
+          $ref: ./primitives.yaml#/AssetId
+        variantsTried: { type: integer, minimum: 1 }
+    - type: object
+      additionalProperties: false
+      required:
+        [
+          kind,
+          base,
+          legs,
+          grossSpread,
+          costRoundTrip,
+          netSpread,
+          holdDays,
+          depthUsd,
+          persistedScans,
+          medianNet30d,
+          positiveShare30d,
+        ]
+      properties:
+        kind: { type: string, enum: [funding_spread, price_gap] }
+        base:
+          $ref: ./primitives.yaml#/AssetId
+        legs:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: ./lab.yaml#/ResearchCardLeg
+        grossSpread:
+          $ref: ./primitives.yaml#/DecStr
+        costRoundTrip:
+          $ref: ./primitives.yaml#/DecStr
+        netSpread:
+          $ref: ./primitives.yaml#/DecStr
+        holdDays: { type: integer, minimum: 1, maximum: 30 }
+        depthUsd:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: ./primitives.yaml#/DecStr
+        persistedScans: { type: integer, minimum: 0 }
+        medianNet30d:
+          oneOf:
+            - $ref: ./primitives.yaml#/DecStr
+            - type: "null"
+        positiveShare30d:
+          oneOf:
+            - $ref: ./primitives.yaml#/DecStr
+            - type: "null"
+ResearchCardView:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      slug,
+      kind,
+      title,
+      summary,
+      author,
+      label,
+      metrics,
+      caveats,
+      window,
+      venues,
+      validUntil,
+      publishedAt,
+      specAvailable,
+    ]
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    slug: { type: string }
+    kind: { type: string, enum: [tested_strategy, funding_spread, price_gap] }
+    title: { type: string }
+    summary: { type: string }
+    author: { const: house }
+    label: { type: string, enum: [tested_on_history_not_trading, live_scan] }
+    metrics:
+      $ref: ./lab.yaml#/ResearchCardMetrics
+    caveats:
+      type: array
+      items:
+        $ref: ./lab.yaml#/LabCaveatCode
+    window:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from:
+          $ref: ./primitives.yaml#/Instant
+        to:
+          $ref: ./primitives.yaml#/Instant
+    venues:
+      type: array
+      items:
+        $ref: ./primitives.yaml#/VenueId
+    validUntil:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    publishedAt:
+      $ref: ./primitives.yaml#/Instant
+    specAvailable: { type: boolean }
+ExportJobView:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      dataset,
+      venue,
+      instruments,
+      from,
+      to,
+      format,
+      status,
+      estimatedBytes,
+      bytes,
+      url,
+      urlExpiresAt,
+      errorCode,
+      createdAt,
+      finishedAt,
+    ]
+  properties:
+    id:
+      $ref: ./primitives.yaml#/Uuid
+    dataset: { type: string, enum: [trades, book_deltas, bars_1m, features_1m, funding] }
+    venue:
+      $ref: ./primitives.yaml#/VenueId
+    instruments:
+      type: array
+      items:
+        $ref: ./venues.yaml#/InstrumentId
+    from:
+      $ref: ./primitives.yaml#/Instant
+    to:
+      $ref: ./primitives.yaml#/Instant
+    format: { const: tsv_gz }
+    status: { type: string, enum: [queued, running, done, failed, refused, expired] }
+    estimatedBytes:
+      $ref: ./lab.yaml#/LabExportBytes
+    bytes:
+      oneOf:
+        - $ref: ./lab.yaml#/LabExportBytes
+        - type: "null"
+    url: { type: [string, "null"] }
+    urlExpiresAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+    errorCode: { type: [string, "null"] }
+    createdAt:
+      $ref: ./primitives.yaml#/Instant
+    finishedAt:
+      oneOf:
+        - $ref: ./primitives.yaml#/Instant
+        - type: "null"
+LabExportBytes:
+  type: string
+  pattern: "^(0|[1-9][0-9]*)$"
+RunDetail:
+  type: object
+  additionalProperties: false
+  required:
+    - run
+    - events
+    - holdings
+    - cloidPrefix
+    - equityPath
+    - runnerSnippet
+  properties:
+    run:
+      $ref: ./lab.yaml#/RunView
+    events:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - kind
+          - at
+          - data
+        properties:
+          kind:
+            type: string
+          at:
+            $ref: ./primitives.yaml#/Instant
+          data:
+            $ref: ./lab.yaml#/LabScalarDetails
+            maxProperties: 40
+      maxItems: 50
+    holdings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - instrument
+          - side
+          - size
+          - entryPx
+          - markPx
+        properties:
+          instrument:
+            $ref: ./venues.yaml#/InstrumentId
+          side:
+            type: string
+            enum:
+              - long
+              - short
+          size:
+            $ref: ./primitives.yaml#/DecStr
+          entryPx:
+            $ref: ./primitives.yaml#/DecStr
+          markPx:
+            oneOf:
+              - $ref: ./primitives.yaml#/DecStr
+              - type: "null"
+    cloidPrefix:
+      type: string
+      pattern: "^r[a-z2-7]{7}$"
+      description: The run's immutable client order ID prefix.
+    equityPath:
+      type: string
+    runnerSnippet:
+      oneOf:
+        - $ref: ./lab-runs.yaml#/RunnerSnippet
+        - type: "null"

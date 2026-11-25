@@ -1,0 +1,750 @@
+# Competition operations (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+competitions:
+  get:
+    operationId: listCompetitions
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: competitions.enabled
+    x-refusals:
+      - feature_unavailable
+      - cursor_invalid
+    summary: List competitions.
+    description:
+      Competitions by window, newest first. Open to anyone; `joined` is null without a session and a read key,
+      and set with one.
+    tags:
+      - Community
+    security:
+      - {}
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: Only this status.
+        schema:
+          $ref: ../components/competitions.yaml#/CompetitionStatus
+      - name: kind
+        in: query
+        required: false
+        description: Only this kind.
+        schema:
+          $ref: ../components/competitions.yaml#/CompetitionKind
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/competitions.yaml#/CompetitionSummary
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - id: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  slug: november-open
+                  title: November Open
+                  kind: main
+                  status: live
+                  windowStart: 2026-11-01
+                  windowEnd: 2026-11-30
+                  entriesCloseOn: 2026-11-14
+                  hostDisplayName: null
+                  venues:
+                    - hyperliquid
+                    - aster
+                  entrantCount: 412
+                  joined: true
+              nextCursor: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+competition:
+  parameters:
+    - name: competitionId
+      in: path
+      required: true
+      description: The competition.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getCompetition
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: competitions.enabled
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    summary: Read one competition.
+    description: The competition with its rules in plain words, its prize ladder and its latest snapshot.
+    tags:
+      - Community
+    security:
+      - {}
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/competitions.yaml#/CompetitionDetail
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                id: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                slug: november-open
+                title: November Open
+                kind: main
+                status: live
+                windowStart: 2026-11-01
+                windowEnd: 2026-11-30
+                entriesCloseOn: 2026-11-14
+                hostDisplayName: null
+                venues:
+                  - hyperliquid
+                  - aster
+                entrantCount: 412
+                joined: true
+                entryPolicy: open
+                rules:
+                  ruleKey: ras_t-1
+                  scoreFn: ras_t
+                  params:
+                    minActiveDays: 10
+                    windowDays: 30
+                  text: Your score is your return per unit of drawdown, over at least 10 active days.
+                prizes:
+                  - rankFrom: 1
+                    rankTo: 1
+                    division: null
+                    kind: cash
+                    funder: us
+                    amount:
+                      amount: "5000"
+                      asset: usdc
+                    terms: null
+                  - rankFrom: 2
+                    rankTo: 10
+                    division: null
+                    kind: points_boost
+                    funder: us
+                    amount: null
+                    terms: Points boost for the next season.
+                latestSnapshot:
+                  day: 2026-11-06
+                  kind: daily
+                  sha256: a3f1c0d2e4b5968778695a4b3c2d1e0f9a8b7c6d5e4f30211203948576a5b4c3
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Competition was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a
+entries:
+  parameters:
+    - name: competitionId
+      in: path
+      required: true
+      description: The competition.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  post:
+    operationId: joinCompetition
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: competitions.enabled
+    x-refusals:
+      - competition_not_open
+      - competition_entry_closed
+      - competition_members_only
+      - join_code_invalid
+      - feature_unavailable
+      - idempotency_conflict
+    summary: Join a competition.
+    description: Enters the signed-in user with the accounts they have linked. A user who withdrew cannot rejoin.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/competitions.yaml#/JoinCompetitionRequest
+          example:
+            acceptRules: true
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/competitions.yaml#/Entry
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                competitionId: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: active
+                joinedAt: 2026-11-03T09:30:00.000Z
+                startDay: 2026-11-04
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+entryMe:
+  parameters:
+    - name: competitionId
+      in: path
+      required: true
+      description: The competition.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  delete:
+    operationId: withdrawFromCompetition
+    x-owner: "11"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-flag: competitions.enabled
+    x-refusals:
+      - not_found
+      - competition_not_open
+      - feature_unavailable
+      - idempotency_conflict
+    summary: Withdraw from a competition.
+    description: Ends the signed-in user's entry; the entry stays, with status `withdrawn`.
+    tags:
+      - Community
+    security:
+      - session: []
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/competitions.yaml#/Entry
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                competitionId: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                status: withdrawn
+                joinedAt: 2026-11-03T09:30:00.000Z
+                startDay: 2026-11-04
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Entry was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a
+myEntries:
+  get:
+    operationId: listMyEntries
+    x-owner: "11"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-flag: competitions.enabled
+    x-refusals:
+      - feature_unavailable
+      - cursor_invalid
+    summary: List my entries.
+    description: The signed-in user's entries with each competition and current rank.
+    tags:
+      - Community
+    security:
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/competitions.yaml#/MyEntry
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - competitionId: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  status: active
+                  joinedAt: 2026-11-03T09:30:00.000Z
+                  startDay: 2026-11-04
+                  competition:
+                    id: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                    slug: november-open
+                    title: November Open
+                    kind: main
+                    status: live
+                    windowStart: 2026-11-01
+                    windowEnd: 2026-11-30
+                    entriesCloseOn: 2026-11-14
+                    hostDisplayName: null
+                    venues:
+                      - hyperliquid
+                      - aster
+                    entrantCount: 412
+                    joined: true
+                  rank: 17
+                  reason: null
+              nextCursor: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a
+standings:
+  parameters:
+    - name: competitionId
+      in: path
+      required: true
+      description: The competition.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getStandings
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: competitions.enabled
+    x-refusals:
+      - not_found
+      - feature_unavailable
+      - cursor_invalid
+    summary: Read the standings.
+    description: "A page of ranked rows of one snapshot. `nextCursor` pages `data.rows`. Default snapshot: the latest."
+    tags:
+      - Community
+    security:
+      - {}
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: day
+        in: query
+        required: false
+        description: The snapshot day; default the latest.
+        schema:
+          $ref: ../components/competitions.yaml#/Day
+      - name: kind
+        in: query
+        required: false
+        description: The snapshot kind; default the latest of the day.
+        schema:
+          $ref: ../components/competitions.yaml#/SnapshotKind
+      - name: division
+        in: query
+        required: false
+        description: Only this division.
+        schema:
+          type: string
+          maxLength: 64
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/competitions.yaml#/StandingsPage
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                snapshot:
+                  day: 2026-11-06
+                  kind: daily
+                  sha256: a3f1c0d2e4b5968778695a4b3c2d1e0f9a8b7c6d5e4f30211203948576a5b4c3
+                  cutoffAt: 2026-11-07T09:30:00.000Z
+                rows:
+                  - rank: 1
+                    token: k7Hq2mXa9Lp3
+                    displayName: northwind
+                    division: null
+                    score: "1.8423"
+                    totalReturn: "0.2150"
+                    maxDrawdown: "0.0980"
+                    observationDays: 6
+                    activeDays: 6
+              nextCursor: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Competition was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a
+standingMe:
+  parameters:
+    - name: competitionId
+      in: path
+      required: true
+      description: The competition.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getMyStanding
+    x-owner: "11"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-flag: competitions.enabled
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    summary: Read my standing.
+    description:
+      The signed-in user's rank, score, gates, counted accounts and daily series. Review status is never a signal
+      (11 CC-032).
+    tags:
+      - Community
+    security:
+      - session: []
+      - apiKey: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/competitions.yaml#/MyStanding
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                entry:
+                  competitionId: 0193a001-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                  status: active
+                  joinedAt: 2026-11-03T09:30:00.000Z
+                  startDay: 2026-11-04
+                status: ranked
+                rank: 17
+                reason: null
+                daysNeeded: null
+                score: "0.9120"
+                totalReturn: "0.0840"
+                maxDrawdown: "0.0920"
+                observationDays: 3
+                activeDays: 3
+                gapToAbove: "0.0130"
+                gapToPaidLine: null
+                gates:
+                  - name: min_active_days
+                    value: "3"
+                    threshold: "3"
+                    passed: true
+                accounts:
+                  - venue: hyperliquid
+                    label: Main
+                    counted: true
+                    coverage: "1"
+                    state: complete
+                equityUsd: "10840.50"
+                pnlUsd: "840.50"
+                creditVolumeUsd: "152300"
+                series:
+                  - day: 2026-11-04
+                    ret: "0.0310"
+                    observation: true
+                    active: true
+                review: none
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Entry was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a
+snapshots:
+  parameters:
+    - name: competitionId
+      in: path
+      required: true
+      description: The competition.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: listSnapshots
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: competitions.enabled
+    x-refusals:
+      - not_found
+      - feature_unavailable
+      - cursor_invalid
+    summary: List snapshots.
+    description: The published snapshots of a competition, newest first.
+    tags:
+      - Community
+    security: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Cursor
+      - $ref: ../components/parameters.yaml#/Limit
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                    - nextCursor
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/competitions.yaml#/SnapshotMeta
+                    nextCursor:
+                      type:
+                        - string
+                        - "null"
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - day: 2026-11-06
+                  kind: daily
+                  sha256: a3f1c0d2e4b5968778695a4b3c2d1e0f9a8b7c6d5e4f30211203948576a5b4c3
+                  createdAt: 2026-11-07T09:30:00.000Z
+                  rankedCount: 388
+              nextCursor: null
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Competition was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a
+snapshot:
+  parameters:
+    - name: competitionId
+      in: path
+      required: true
+      description: The competition.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+    - name: day
+      in: path
+      required: true
+      description: The snapshot day.
+      schema:
+        $ref: ../components/competitions.yaml#/Day
+    - name: kind
+      in: path
+      required: true
+      description: The snapshot kind.
+      schema:
+        $ref: ../components/competitions.yaml#/SnapshotKind
+  get:
+    operationId: getSnapshot
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-flag: competitions.enabled
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    summary: Read one snapshot document.
+    description: The exact canonical text of a snapshot and its SHA-256, for independent verification.
+    tags:
+      - Community
+    security: []
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/competitions.yaml#/SnapshotDocument
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                document: '{"competition":"november-open","day":"2026-11-06"}'
+                sha256: a3f1c0d2e4b5968778695a4b3c2d1e0f9a8b7c6d5e4f30211203948576a5b4c3
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: not_found
+              message: Snapshot was not found.
+              retryable: false
+              requestId: req_01936f2e7c3a

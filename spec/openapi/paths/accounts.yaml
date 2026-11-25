@@ -1,0 +1,219 @@
+# Venue accounts (03 §7.4, §9.1; read model over 02 `venue_accounts`).
+accounts:
+  get:
+    operationId: listAccounts
+    summary: List linked venue accounts with their connections.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security: &a1
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Venue
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/accounts.yaml#/VenueAccountInfo
+                - &a2
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - &a3
+                  accountId: 01936f2e-7c3b-7c2f-9e5a-3b0d6f7c8e91
+                  venue: hyperliquid
+                  accountRef: "0x1111111111111111111111111111111111111111"
+                  subAccountRef: null
+                  masterAccountId: null
+                  kind: user
+                  linkedBy: siwe
+                  linkedAt: 2026-11-07T09:30:00.000Z
+                  connections:
+                    - connectionId: 01936f2e-7c3a-7b1e-8d4f-2a9c5e6b7d80
+                      accountId: 01936f2e-7c3b-7c2f-9e5a-3b0d6f7c8e91
+                      venue: hyperliquid
+                      mode: gateway
+                      keyPlace: signer
+                      state: active
+                      stateReason: null
+                      key:
+                        credentialId: 01936f2e-7c3c-7d30-8f6b-4c1e7a8d9fa2
+                        kind: agent
+                        custody: venue_trade_only
+                        holder: signer
+                        publicRef: "0x1111111111111111111111111111111111111111"
+                        can:
+                          - Place and cancel orders
+                        cannot:
+                          - Withdraw funds
+                        ipBinding: not_readable
+                        expiresAt: 2026-11-07T09:30:05.000Z
+                        renewFrom: 2026-11-07T09:30:00.000Z
+                        checkedAt: 2026-11-07T09:30:00.000Z
+                        sealedTo:
+                          kind: process_signer
+                      approval:
+                        state: approved
+                        cap: "0.001"
+                        readAt: 2026-11-07T09:30:00.000Z
+                      custodyNote: The key can trade; it cannot withdraw. Funds move only with your own wallet signature.
+                      venueExtra: {}
+                      createdAt: 2026-11-07T09:30:00.000Z
+                      updatedAt: 2026-11-07T09:30:00.000Z
+account:
+  parameters:
+    - name: accountId
+      in: path
+      required: true
+      description: A venue account id.
+      schema:
+        $ref: ../components/primitives.yaml#/Uuid
+  get:
+    operationId: getAccount
+    summary: Read one linked venue account.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - account_not_bound
+    security: *a1
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/accounts.yaml#/VenueAccountInfo
+                - *a2
+            example:
+              ok: true
+              data: *a3
+linkChallenge:
+  post:
+    operationId: createAccountLinkChallenge
+    summary: Get the text the owner wallet signs to link a direct-mode account.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    security: *a1
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/accounts.yaml#/AccountLinkChallengeRequest
+          example:
+            venue: hyperliquid
+            accountRef: "0x1111111111111111111111111111111111111111"
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/accounts.yaml#/AccountLinkChallenge
+                - *a2
+            example:
+              ok: true
+              data:
+                message: Link hyperliquid account 0x1111 to my profile. Nonce 7f3a.
+                nonce: 7f3a
+                expiresAt: 2026-11-07T09:30:05.000Z
+link:
+  post:
+    operationId: linkAccount
+    summary: Link a direct-mode account with the owner wallet's proof. It never becomes a sign-in or payout wallet.
+    tags:
+      - Accounts
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - signer_mismatch
+      - grant_invalid
+      - wallet_linked_elsewhere
+      - idempotency_conflict
+    security: *a1
+    parameters:
+      - $ref: ../components/headers.yaml#/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/accounts.yaml#/AccountLinkRequest
+          example:
+            venue: hyperliquid
+            accountRef: "0x1111111111111111111111111111111111111111"
+            message: Link hyperliquid account 0x1111 to my profile. Nonce 7f3a.
+            signature:
+              "0xababababababababababababababababababababababababababababababababababababababababababababababababababababa\
+              babababababababababababab"
+            scheme: eip191
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/accounts.yaml#/VenueAccountInfo
+                - *a2
+            example:
+              ok: true
+              data: *a3

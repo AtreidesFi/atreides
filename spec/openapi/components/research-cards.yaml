@@ -1,0 +1,120 @@
+ResearchCardKind:
+  type: string
+  enum: [tested_strategy, funding_spread, price_gap]
+ResearchCardLeg:
+  type: object
+  additionalProperties: false
+  required: [venue, instrument]
+  properties:
+    venue:
+      $ref: ../components/primitives.yaml#/VenueId
+    instrument:
+      type: string
+ResearchCardMetrics:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        [kind, trades, days, returnUnseen, returnTrain, maxDrawdown, netPnlOnBudget, budget, quoteAsset, variantsTried]
+      properties:
+        kind: { const: tested_strategy }
+        trades: { type: integer, minimum: 0 }
+        days: { type: integer, minimum: 1 }
+        returnUnseen: { $ref: ../components/primitives.yaml#/DecStr }
+        returnTrain: { $ref: ../components/primitives.yaml#/DecStr }
+        maxDrawdown: { $ref: ../components/primitives.yaml#/DecStr }
+        netPnlOnBudget: { $ref: ../components/primitives.yaml#/DecStr }
+        budget: { $ref: ../components/primitives.yaml#/DecStr }
+        quoteAsset: { $ref: ../components/primitives.yaml#/AssetId }
+        variantsTried: { type: integer, minimum: 1 }
+    - type: object
+      additionalProperties: false
+      required:
+        [
+          kind,
+          base,
+          legs,
+          grossSpread,
+          costRoundTrip,
+          netSpread,
+          holdDays,
+          depthUsd,
+          persistedScans,
+          medianNet30d,
+          positiveShare30d,
+        ]
+      properties:
+        kind: { type: string, enum: [funding_spread, price_gap] }
+        base: { $ref: ../components/primitives.yaml#/AssetId }
+        legs:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { $ref: "#/ResearchCardLeg" }
+        grossSpread: { $ref: ../components/primitives.yaml#/DecStr }
+        costRoundTrip: { $ref: ../components/primitives.yaml#/DecStr }
+        netSpread: { $ref: ../components/primitives.yaml#/DecStr }
+        holdDays: { type: integer, minimum: 1 }
+        depthUsd:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { $ref: ../components/primitives.yaml#/DecStr }
+        persistedScans: { type: integer, minimum: 1 }
+        medianNet30d:
+          oneOf:
+            - { $ref: ../components/primitives.yaml#/DecStr }
+            - { type: "null" }
+        positiveShare30d:
+          oneOf:
+            - { $ref: ../components/primitives.yaml#/DecStr }
+            - { type: "null" }
+ResearchCardView:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      slug,
+      kind,
+      title,
+      summary,
+      author,
+      label,
+      metrics,
+      caveats,
+      window,
+      venues,
+      validUntil,
+      publishedAt,
+      specAvailable,
+    ]
+  properties:
+    id: { $ref: ../components/primitives.yaml#/Uuid }
+    slug: { type: string, maxLength: 80, pattern: "^[a-z0-9]+(-[a-z0-9]+){0,9}$" }
+    kind: { $ref: "#/ResearchCardKind" }
+    title: { type: string, minLength: 1, maxLength: 120 }
+    summary: { type: string, minLength: 1, maxLength: 600 }
+    author: { const: house }
+    label: { type: string, enum: [tested_on_history_not_trading, live_scan] }
+    metrics: { $ref: "#/ResearchCardMetrics" }
+    caveats:
+      type: array
+      items: { type: string }
+    window:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from: { $ref: ../components/primitives.yaml#/Instant }
+        to: { $ref: ../components/primitives.yaml#/Instant }
+    venues:
+      type: array
+      items: { $ref: ../components/primitives.yaml#/VenueId }
+    validUntil:
+      oneOf:
+        - { $ref: ../components/primitives.yaml#/Instant }
+        - { type: "null" }
+    publishedAt: { $ref: ../components/primitives.yaml#/Instant }
+    specAvailable: { type: boolean }
+    spec: { $ref: ../components/lab.yaml#/StrategySpec }

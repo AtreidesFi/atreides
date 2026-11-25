@@ -1,0 +1,339 @@
+# Market views the assistant also uses (03 §7.3; shapes 10 §3.3). Shape and route are 03's; the data comes from 04, 07 and 08.
+marketSnapshot:
+  get:
+    operationId: getMarketSnapshot
+    summary: "Compare one asset or instrument across venues: price, depth, funding and fees."
+    description: Send exactly one of `instrumentId` and `asset`; otherwise `invalid_request`.
+    tags:
+      - Markets
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - invalid_request
+      - feature_unavailable
+    x-mcp-tool:
+      name: market_snapshot
+      description: "Read the current snapshot across venues for one instrument or asset."
+    security: &a2
+      - {}
+      - session: []
+      - apiKey: []
+    parameters:
+      - name: instrumentId
+        in: query
+        required: false
+        description: One instrument.
+        schema:
+          $ref: ../components/venues.yaml#/InstrumentId
+      - name: asset
+        in: query
+        required: false
+        description: An asset symbol, all venues that list it.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 32
+      - name: cls
+        in: query
+        required: false
+        description: Only this class.
+        schema:
+          $ref: ../components/primitives.yaml#/InstrumentClass
+      - &a3
+        name: venue
+        in: query
+        required: false
+        description: Only these venues. Repeat the parameter for several.
+        schema:
+          type: array
+          items:
+            $ref: ../components/primitives.yaml#/VenueId
+        style: form
+        explode: true
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/markets.yaml#/MarketSnapshot
+                - &a4
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                rows:
+                  - instrument: hyperliquid:BTC
+                    venue: hyperliquid
+                    state: open
+                    mark: "67050"
+                    mid: "67050.5"
+                    spreadBps: "0.15"
+                    depth10bp:
+                      amount: "250000"
+                      asset: usdc
+                    depth25bp:
+                      amount: "600000"
+                      asset: usdc
+                    fundingRate: "0.0000125"
+                    fundingIntervalH: 1
+                    fundingApr: "0.1095"
+                    volume24h:
+                      amount: "900000000"
+                      asset: usdc
+                    openInterest:
+                      amount: "1200000000"
+                      asset: usdc
+                    takerFee: &a1
+                      venue:
+                        amount: "0.3"
+                        asset: usdc
+                      ours:
+                        amount: "0.05"
+                        asset: usdc
+                      ourRateBps: "0.5"
+                      basis: builder_fee
+                    makerFee: *a1
+                    age: &a5
+                      at: 2026-11-07T09:30:00.000Z
+                      ageMs: 120
+                      daysAgo: "0"
+compareFunding:
+  get:
+    operationId: compareFunding
+    summary: Compare funding for an asset across venues over a window.
+    tags:
+      - Markets
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    x-mcp-tool:
+      name: funding_compare
+      description: "Compare funding across selected venues over a time window."
+    security: *a2
+    parameters:
+      - name: asset
+        in: query
+        required: true
+        description: An asset symbol.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 32
+      - *a3
+      - name: window
+        in: query
+        required: true
+        description: The comparison window.
+        schema:
+          type: string
+          enum:
+            - 24h
+            - 7d
+            - 30d
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/markets.yaml#/FundingCompare
+                - *a4
+            example:
+              ok: true
+              data:
+                venues:
+                  - venue: hyperliquid
+                    instrument: hyperliquid:BTC
+                    aprMean: "0.1"
+                    aprLast: "0.11"
+                    intervals: 24
+                pairs:
+                  - long: hyperliquid
+                    short: aster
+                    aprSpread: "0.05"
+                    consistentIntervals: 20
+comparePrices:
+  get:
+    operationId: comparePrices
+    summary: Compare prices for an asset across venues, net of each venue's all-in fee.
+    tags:
+      - Markets
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - not_found
+      - feature_unavailable
+    x-mcp-tool:
+      name: price_gaps
+      description: "Compare prices and all-in costs across selected venues."
+    security: *a2
+    parameters:
+      - name: asset
+        in: query
+        required: true
+        description: An asset symbol.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 32
+      - *a3
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/markets.yaml#/PriceGaps
+                - *a4
+            example:
+              ok: true
+              data:
+                rows:
+                  - venue: hyperliquid
+                    instrument: hyperliquid:BTC
+                    mid: "67050.5"
+                    gapBpsToBest: "0"
+                    age: *a5
+                allInBest:
+                  buy: hyperliquid
+                  sell: hyperliquid
+coverage:
+  get:
+    operationId: getCoverage
+    summary: Read what market history we hold, per venue and instrument.
+    tags:
+      - Markets
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-mcp-tool:
+      name: coverage
+      description: "Read the recorded data coverage for a venue or instrument."
+    security: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: instrumentId
+        in: query
+        required: false
+        description: Only this instrument.
+        schema:
+          $ref: ../components/venues.yaml#/InstrumentId
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/markets.yaml#/Coverage
+                - *a4
+            example:
+              ok: true
+              data:
+                rows:
+                  - venue: hyperliquid
+                    instrument: hyperliquid:BTC
+                    kind: trades
+                    from: 2026-11-07T09:30:00.000Z
+                    to: 2026-11-07T09:30:05.000Z
+                    holes: 0
+help:
+  get:
+    operationId: getProductHelp
+    summary: Look up product help for a topic, with live values filled.
+    tags:
+      - Markets
+    x-owner: "03"
+    x-scope: public
+    x-rate-class: public
+    x-idempotency: none
+    x-refusals:
+      - feature_unavailable
+    x-mcp-tool:
+      name: product_help
+      description: "Look up a product topic with the current values and available features."
+    security: *a2
+    parameters:
+      - name: topic
+        in: query
+        required: true
+        description: What to look up.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/markets.yaml#/ProductHelp
+                - *a4
+            example:
+              ok: true
+              data:
+                entries:
+                  - id: fees.tiers
+                    screen: rewards
+                    title: Fee tiers
+                    text: Your tier sets the fee on each order.
+                    liveValues:
+                      baseRate: "0.0001"

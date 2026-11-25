@@ -1,0 +1,224 @@
+# The second factor (03 §4.7, §7.1). Owner 03.
+# Operations only, no handlers (ORC-F01). Schemas are in ../components/.
+security:
+  get:
+    operationId: getSecurity
+    summary: Read the second-factor state.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals: []
+    security: &a1
+      - session: []
+    responses:
+      "200":
+        description: The state.
+        headers:
+          X-Request-Id: &a2
+            $ref: ../components/headers.yaml#/X-Request-Id
+          RateLimit-Limit: &a3
+            $ref: ../components/headers.yaml#/RateLimit-Limit
+          RateLimit-Remaining: &a4
+            $ref: ../components/headers.yaml#/RateLimit-Remaining
+          RateLimit-Reset: &a5
+            $ref: ../components/headers.yaml#/RateLimit-Reset
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/identity.yaml#/SecurityState
+            example:
+              ok: true
+              data:
+                totp: on
+                recoveryCodesLeft: 10
+totpSetup:
+  post:
+    operationId: setupTotp
+    summary: Start setting up an authenticator app.
+    description: Makes a secret and leaves the second factor `pending` until `enableTotp` confirms a code.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals: []
+    security: *a1
+    parameters:
+      - &a6
+        $ref: ../components/headers.yaml#/IdempotencyKey
+    responses:
+      "200":
+        description: The secret.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ok
+                - data
+              properties:
+                ok:
+                  const: true
+                data:
+                  $ref: ../components/identity.yaml#/TotpSetup
+            example:
+              ok: true
+              data:
+                otpauthUri: otpauth://totp/Account:trader?secret=JBSWY3DPEHPK3PXP&issuer=Account
+                secretBase32: JBSWY3DPEHPK3PXP
+totpEnable:
+  post:
+    operationId: enableTotp
+    summary: Turn the second factor on.
+    description: Confirms a code from the authenticator app. Shows the recovery codes once and signs the user's other sessions out.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - second_factor_invalid
+    security: *a1
+    parameters:
+      - *a6
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/identity.yaml#/TotpEnableRequest
+          example:
+            code: "123456"
+    responses:
+      "200":
+        description: The recovery codes, shown once.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/RecoveryCodes
+                - &a7
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data: &a9
+                recoveryCodes:
+                  - k7m2-9xq4-bd8w
+                  - p3v6-1ht5-nz0c
+totpDisable:
+  post:
+    operationId: disableTotp
+    summary: Turn the second factor off.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - second_factor_required
+      - second_factor_invalid
+    security: *a1
+    parameters:
+      - *a6
+      - &a8
+        $ref: ../components/headers.yaml#/SecondFactor
+    responses:
+      "200":
+        description: Turned off.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/Empty
+                - *a7
+            example:
+              ok: true
+              data: {}
+recoveryCodes:
+  post:
+    operationId: regenerateRecoveryCodes
+    summary: Make new recovery codes.
+    description: Replaces the old codes. The new ones are shown once.
+    tags:
+      - Auth
+    x-owner: "03"
+    x-scope: session
+    x-rate-class: connect
+    x-idempotency: header
+    x-refusals:
+      - second_factor_required
+      - second_factor_invalid
+    security: *a1
+    parameters:
+      - *a6
+      - *a8
+    responses:
+      "200":
+        description: The recovery codes, shown once.
+        headers:
+          X-Request-Id: *a2
+          RateLimit-Limit: *a3
+          RateLimit-Remaining: *a4
+          RateLimit-Reset: *a5
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/identity.yaml#/RecoveryCodes
+                - *a7
+            example:
+              ok: true
+              data: *a9

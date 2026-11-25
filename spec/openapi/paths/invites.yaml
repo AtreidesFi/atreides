@@ -1,0 +1,58 @@
+# Invite operations (x-owner '11'; 11 §13.4). Hand-maintained; every operation carries the extensions of 03 §13.2.
+check:
+  post:
+    operationId: checkInvite
+    x-owner: "11"
+    x-scope: public
+    x-rate-class: auth
+    x-idempotency: none
+    x-refusals: []
+    summary: Check an invite code.
+    description:
+      "Whether a code or pasted link can admit a new account, and whose it is. An unknown code answers `valid:
+      false`, never a refusal."
+    tags:
+      - Community
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/community.yaml#/CheckInviteRequest
+          example:
+            code: northwind
+    responses:
+      "200":
+        description: "The answer, or a decided refusal (HTTP 200 with `ok: false`)."
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/community.yaml#/InviteCheck
+                - $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                valid: true
+                profileDisplayName: Northwind Traders
+      default:
+        description: A transport error (401, 403, 404, 429, 5xx) with the same body as a refusal.
+        content:
+          application/json:
+            schema:
+              $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: false
+              code: unauthenticated
+              message: Sign in first.
+              retryable: false
+              requestId: req_01936f2e7c3a

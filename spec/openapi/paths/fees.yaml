@@ -1,0 +1,149 @@
+# Fees (03 §7.4, §10.6; rates and records 07, approvals 02 `fee_approvals`).
+fees:
+  get:
+    operationId: getFees
+    summary: Read the fee schedule per venue, each rate recorded before it is returned.
+    description: With no `venue`, every venue with a `d-only` or `open` unit for the caller.
+    tags:
+      - Fees
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: read
+    x-idempotency: none
+    x-refusals:
+      - account_not_bound
+      - not_found
+      - unavailable
+    security: &a1
+      - session: []
+      - apiKey: []
+    parameters:
+      - $ref: ../components/parameters.yaml#/Venue
+      - name: cls
+        in: query
+        required: false
+        description: Only rates of this class.
+        schema:
+          $ref: ../components/primitives.yaml#/InstrumentClass
+      - $ref: ../components/parameters.yaml#/AccountId
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      type: array
+                      items:
+                        $ref: ../components/fees.yaml#/FeeSchedule
+                - &a2
+                  $ref: ../components/envelope.yaml#/Refusal
+            example:
+              ok: true
+              data:
+                - venue: hyperliquid
+                  feeKind: builder_fee
+                  unit: tenth_bp
+                  step: "0.00001"
+                  builderRef: "0x1111111111111111111111111111111111111111"
+                  field: "builder: {b, f}"
+                  rates:
+                    - cls: perp
+                      originClass: algo
+                      liquidity: taker
+                      rate: "0.0001"
+                      encodedRate: "10"
+                      validFrom: 2026-11-07T09:30:00.000Z
+                      validUntil: 2026-11-07T09:30:05.000Z
+                  approval:
+                    state: approved
+                    cap: "0.001"
+                    readAt: 2026-11-07T09:30:00.000Z
+                  classCaps:
+                    perp: "0.001"
+                  tier: base
+                  ruleVersion: 01936f2e-7c3b-7c2f-9e5a-3b0d6f7c8e91
+                  validUntil: 2026-11-07T09:30:05.000Z
+feeQuote:
+  post:
+    operationId: quoteFee
+    summary: Quote the cost of an order against the live book. Nothing is written.
+    tags:
+      - Fees
+    x-owner: "03"
+    x-scope: read
+    x-rate-class: heavy
+    x-idempotency: none
+    x-mcp-tool:
+      name: fee_quote
+      description: Quote order fees against the current book without placing an order.
+    x-refusals:
+      - not_found
+      - stale_price
+      - min_notional
+      - lot_size
+      - tick_size
+    security: *a1
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/fees.yaml#/FeeQuoteRequest
+          example:
+            instrumentId: hyperliquid:BTC
+            side: buy
+            size: "0.01"
+            orderType: market
+            mode: gateway
+    responses:
+      "200":
+        description: The result, or a refusal.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - ok
+                    - data
+                  properties:
+                    ok:
+                      const: true
+                    data:
+                      $ref: ../components/fees.yaml#/FeeQuote
+                - *a2
+            example:
+              ok: true
+              data:
+                instrumentId: hyperliquid:BTC
+                size: "0.01"
+                price: "67051"
+                notional: "670.51"
+                ourRate: "0.0001"
+                ourFee:
+                  amount: "0.067051"
+                  asset: usdc
+                venueRate: "0.00045"
+                venueFee:
+                  amount: "0.301729"
+                  asset: usdc
+                funding:
+                  rate: "0.0000125"
+                  intervalHours: 1
+                allIn:
+                  price: "67057.4"
+                  cost:
+                    amount: "670.88"
+                    asset: usdc
+                depthWithinBand: "3.2"
+                bookAgeMs: 120
+                validUntil: 2026-11-07T09:30:05.000Z

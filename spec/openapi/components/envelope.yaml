@@ -1,0 +1,285 @@
+# The envelope of every answer (01 A15, §5.12 rule 5; 03 §6.1). A success is { ok: true, data }; a decided refusal is
+# HTTP 200 with the Refusal body; a transport error carries the same body with its HTTP status.
+Ok:
+  type: object
+  description: >-
+    A success. An operation's answer is this envelope with `data` narrowed to its own schema, as
+    `allOf: [Ok, { type: object, required: [data], properties: { data: <schema> } }]`, or `oneOf` that and Refusal.
+  required: [ok, data]
+  properties:
+    ok:
+      const: true
+    data: {}
+OkList:
+  type: object
+  description: >-
+    A page of a list, newest first unless the operation says otherwise. Pass `nextCursor` as `cursor` for the next
+    page; it is null on the last page. An operation narrows `data.items` the same way as Ok.
+  required: [ok, data, nextCursor]
+  properties:
+    ok:
+      const: true
+    data:
+      type: array
+      items: {}
+    nextCursor:
+      type: [string, "null"]
+      description: Opaque. Valid for the same operation and filters as long as its rows exist.
+Refusal:
+  type: object
+  description: A refusal or an error. `code` names the cause, `message` says how to fix it; map the code, not the text.
+  required: [ok, code, message, retryable, requestId]
+  properties:
+    ok:
+      const: false
+    code:
+      $ref: "#/ErrorCode"
+    message:
+      type: string
+    retryable:
+      type: boolean
+      description: True when the same request may succeed later unchanged.
+    details:
+      type: object
+      description: The values the message was filled from.
+      additionalProperties:
+        type: [string, number, boolean, "null"]
+    requestId:
+      type: string
+      description: Equals the X-Request-Id header of the answer; quote it when asking for help.
+# BEGIN ErrorCode: generated error code enumeration.
+ErrorCode:
+  type: string
+  description: >-
+    Every code a refusal or an error can carry. Codes are added over time and never renamed or removed in v1;
+    map an unknown code to a generic message.
+  enum:
+    - "invalid_request"
+    - "invalid_decimal"
+    - "invalid_id"
+    - "unauthenticated"
+    - "signature_invalid"
+    - "timestamp_out_of_window"
+    - "nonce_reused"
+    - "forbidden"
+    - "scope_missing"
+    - "not_found"
+    - "idempotency_conflict"
+    - "tx_already_used"
+    - "not_lease_holder"
+    - "rate_limited"
+    - "unavailable"
+    - "internal"
+    - "asset_mismatch"
+    - "division_by_zero"
+    - "session_required"
+    - "ip_not_allowed"
+    - "awaiting_code"
+    - "account_not_bound"
+    - "blocked"
+    - "idempotency_key_missing"
+    - "idempotency_in_progress"
+    - "cursor_invalid"
+    - "insufficient_depth"
+    - "route_requote"
+    - "routing_unavailable_testnet"
+    - "route_no_candidate"
+    - "route_leg_invalid"
+    - "route_not_live"
+    - "feature_unavailable"
+    - "venue_closed"
+    - "venue_reduce_only"
+    - "venue_paused"
+    - "builder_ineligible"
+    - "kill_switch_active"
+    - "rate_limited_account"
+    - "fee_approval_missing"
+    - "fee_check_failed"
+    - "fee_code_missing"
+    - "fee_above_cap"
+    - "key_expiring"
+    - "agent_expired"
+    - "key_rights_refused"
+    - "insufficient_margin"
+    - "tick_size"
+    - "lot_size"
+    - "min_notional"
+    - "price_band"
+    - "stale_price"
+    - "limit_exceeded"
+    - "order_type_unsupported"
+    - "key_frozen"
+    - "venue_rejected"
+    - "unknown_outcome"
+    - "siwe_invalid"
+    - "telegram_auth_invalid"
+    - "discord_auth_failed"
+    - "invite_required"
+    - "invite_invalid"
+    - "wallet_linked_elsewhere"
+    - "identity_linked_elsewhere"
+    - "wallet_move_cooldown"
+    - "last_sign_in_method"
+    - "second_factor_required"
+    - "second_factor_invalid"
+    - "key_limit_reached"
+    - "grant_invalid"
+    - "grant_signer_not_owner"
+    - "account_not_connected"
+    - "offer_expired"
+    - "prepare_expired"
+    - "relayer_failed"
+    - "no_deposit_wallet"
+    - "recipient_not_owner"
+    - "insufficient_balance"
+    - "signer_mismatch"
+    - "user_action_expired"
+    - "relay_payload_invalid"
+    - "connection_state"
+    - "not_placed"
+    - "relay_signer_mismatch"
+    - "relay_refused"
+    - "instrument_halted"
+    - "attestation_failed"
+    - "account_underfunded"
+    - "agent_slots_full"
+    - "builder_limit_reached"
+    - "terms_not_accepted"
+    - "builder_not_held_by_signer"
+    - "relink_limit"
+    - "approval_required"
+    - "approval_invalid"
+    - "hardware_key_required"
+    - "credential_too_new"
+    - "step_up_required"
+    - "positions_private"
+    - "referral_code_invalid"
+    - "referral_code_taken"
+    - "referral_self"
+    - "referral_late_closed"
+    - "referral_already_attributed"
+    - "profile_not_owner"
+    - "profile_code_limit"
+    - "profile_suspended"
+    - "owner_change_pending"
+    - "owner_change_signature_invalid"
+    - "wallet_required"
+    - "competition_not_open"
+    - "competition_entry_closed"
+    - "competition_members_only"
+    - "join_code_invalid"
+    - "display_name_invalid"
+    - "display_name_taken"
+    - "budget_exceeded"
+    - "prize_kind_unavailable"
+    - "rule_not_approved"
+    - "owner_change_target_has_personal"
+    - "ticket_expired"
+    - "ticket_requote"
+    - "ticket_unit_not_open"
+    - "ticket_duplicate"
+    - "spend_cap_reached"
+    - "assistant_busy"
+    - "model_unavailable"
+    - "memory_full"
+    - "memory_secret_refused"
+    - "chat_link_code_invalid"
+    - "chat_not_linked"
+    - "alert_rule_unavailable"
+    - "alert_rules_limit"
+    - "mcp_quota_exceeded"
+    - "state_conflict"
+    - "claims_halted"
+    - "claim_below_minimum"
+    - "nothing_claimable"
+    - "payout_wallet_missing"
+    - "payout_wallet_cooling_off"
+    - "preferences_conflict"
+    - "preferences_invalid"
+    - "key_invalid"
+    - "ip_binding_mismatch"
+    - "read_only_offered_for_trade"
+    - "venue_rate_limited"
+    - "clock_skew"
+    - "post_only_would_take"
+    - "reduce_only_rejected"
+    - "rate_limited_ip"
+    - "ip_banned"
+    - "venue_waf_block"
+    - "venue_overloaded"
+    - "venue_price_band"
+    - "fok_unfilled"
+    - "venue_account_restricted"
+    - "venue_symbol_restricted"
+    - "venue_quant_rule"
+    - "internal_encoder_error"
+    - "order_not_open"
+    - "venue_unavailable"
+    - "fast_api_slot_used"
+    - "state_invalid"
+    - "grant_expired"
+    - "user_declined"
+    - "futures_account_missing"
+    - "create_outcome_unknown"
+    - "key_unwrap_failed"
+    - "venue_key_limit"
+    - "venue_key_create_failed"
+    - "venue_compliance_refusal"
+    - "venue_position_cap"
+    - "deadman_capacity"
+    - "venue_unknown_reject"
+    - "check_token_invalid"
+    - "uid_linked_elsewhere"
+    - "order_not_found"
+    - "duplicate_client_order_id"
+    - "too_many_open_orders"
+    - "market_closed"
+    - "account_not_unified"
+    - "tpsl_not_atomic"
+    - "price_out_of_band_venue"
+    - "venue_unreachable"
+    - "oauth_denied"
+    - "oauth_not_enabled"
+    - "key_propagation_pending"
+    - "market_data_unavailable"
+    - "coverage_insufficient"
+    - "range_outside_retention"
+    - "not_shareable"
+    - "backfill_source_unknown"
+    - "backfill_approval_missing"
+    - "backfill_conflict"
+    - "bot_limit_reached"
+    - "bot_file_invalid"
+    - "bot_not_ready"
+    - "bots_unavailable"
+    - "lab_spec_invalid"
+    - "lab_data_gap"
+    - "lab_venue_not_ready"
+    - "lab_venue_not_licensed"
+    - "lab_fee_model_missing"
+    - "lab_too_many_runs"
+    - "lab_run_too_large"
+    - "lab_run_timeout"
+    - "lab_run_finished"
+    - "lab_rows_expired"
+    - "lab_replay_busy"
+    - "lab_replay_idle"
+    - "strategy_archived"
+    - "strategy_kind_mismatch"
+    - "strategy_has_live_runs"
+    - "strategy_killed"
+    - "strategy_run_not_live"
+    - "strategy_run_cap"
+    - "strategy_run_caps_invalid"
+    - "strategy_run_limit"
+    - "strategy_run_version_mismatch"
+    - "strategy_run_finished"
+    - "strategy_run_flat"
+    - "account_not_owned"
+    - "follow_limit"
+    - "follow_exists"
+    - "research_card_no_spec"
+    - "export_quota_exceeded"
+    - "export_not_allowed"
+    - "export_expired"
+# END ErrorCode
